@@ -1,0 +1,103 @@
+package main
+
+import (
+	"fmt"
+	"os"
+	"strings"
+
+	"github.com/mattsolo1/grove-core/cli"
+	"github.com/mattsolo1/grove-notifications"
+	"github.com/spf13/cobra"
+)
+
+func main() {
+	rootCmd := cli.NewStandardCommand(
+		"notify",
+		"Notification system for Grove ecosystem",
+	)
+	
+	// Add subcommands
+	rootCmd.AddCommand(newSystemCmd())
+	rootCmd.AddCommand(newNtfyCmd())
+	
+	if err := rootCmd.Execute(); err != nil {
+		os.Exit(1)
+	}
+}
+
+func newSystemCmd() *cobra.Command {
+	var level string
+	
+	cmd := &cobra.Command{
+		Use:   "system [args...]",
+		Short: "Send a system notification",
+		Long: `Send a system notification with title and message.
+Usage:
+  notify system --title "Title" "Message text"
+  notify system --title "Title" --level info "Message text"`,
+		Args: cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			title, _ := cmd.Flags().GetString("title")
+			if title == "" {
+				title = "Grove Notification"
+			}
+			
+			message := strings.Join(args, " ")
+			
+			if err := notifications.SendSystem(title, message, level); err != nil {
+				return fmt.Errorf("failed to send system notification: %w", err)
+			}
+			
+			fmt.Printf("System notification sent: %s - %s\n", title, message)
+			return nil
+		},
+	}
+	
+	cmd.Flags().String("title", "Grove Notification", "Notification title")
+	cmd.Flags().StringVar(&level, "level", "info", "Notification level (info, warning, error)")
+	
+	return cmd
+}
+
+func newNtfyCmd() *cobra.Command {
+	var (
+		topic    string
+		title    string
+		priority string
+		tags     []string
+		url      string
+	)
+	
+	cmd := &cobra.Command{
+		Use:   "ntfy [args...]",
+		Short: "Send a notification via ntfy",
+		Long: `Send a notification via ntfy service.
+Usage:
+  notify ntfy --topic mytopic --title "Title" "Message text"
+  notify ntfy --topic mytopic --title "Title" --priority high --tags tag1,tag2 "Message text"`,
+		Args: cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			message := strings.Join(args, " ")
+			
+			if url == "" {
+				url = "https://ntfy.sh" // Default ntfy server
+			}
+			
+			if err := notifications.SendNtfy(url, topic, title, message, priority, tags); err != nil {
+				return fmt.Errorf("failed to send ntfy notification: %w", err)
+			}
+			
+			fmt.Printf("Ntfy notification sent to topic '%s': %s - %s\n", topic, title, message)
+			return nil
+		},
+	}
+	
+	cmd.Flags().StringVar(&topic, "topic", "", "Ntfy topic (required)")
+	cmd.Flags().StringVar(&title, "title", "Grove Notification", "Notification title")
+	cmd.Flags().StringVar(&priority, "priority", "default", "Priority (min, low, default, high, urgent)")
+	cmd.Flags().StringSliceVar(&tags, "tags", nil, "Comma-separated tags")
+	cmd.Flags().StringVar(&url, "url", "", "Ntfy server URL (default: https://ntfy.sh)")
+	cmd.MarkFlagRequired("topic")
+	
+	return cmd
+}
