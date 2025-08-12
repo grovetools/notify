@@ -51,6 +51,11 @@ jobs:
         run: |
           make test-e2e-build
 
+      - name: Install system notification dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libnotify-bin
+
       - name: Run E2E tests
         run: |
           make test-e2e
@@ -91,6 +96,12 @@ jobs:
       - name: Run tests
         run: |
           make test
+
+      - name: Install system notification dependencies (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libnotify-bin
 
       - name: Run E2E tests
         run: |
