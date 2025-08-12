@@ -30,11 +30,13 @@ all: build
 build:
 	@mkdir -p $(BIN_DIR)
 	@echo "Building $(BINARY_NAME) version $(VERSION)..."
-	@go build $(LDFLAGS) -o $(BIN_DIR)/$(BINARY_NAME) .
+	@go build $(LDFLAGS) -o $(BIN_DIR)/$(BINARY_NAME) ./cmd/notify
 
 test:
-	@echo "Running tests..."
+	@echo "Running unit tests..."
 	@go test -v ./...
+	@echo "Running E2E tests..."
+	@make test-e2e
 
 clean:
 	@echo "Cleaning..."
@@ -70,17 +72,28 @@ check: fmt vet lint test
 dev:
 	@mkdir -p $(BIN_DIR)
 	@echo "Building $(BINARY_NAME) with race detector..."
-	@go build -race $(LDFLAGS) -o $(BIN_DIR)/$(BINARY_NAME) .
+	@go build -race $(LDFLAGS) -o $(BIN_DIR)/$(BINARY_NAME) ./cmd/notify
 
 # Cross-compile for multiple platforms
 build-all:
 	@mkdir -p $(BIN_DIR)
 	@echo "Building for Linux AMD64..."
-	@GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o $(BIN_DIR)/$(BINARY_NAME)-linux-amd64 .
+	@GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o $(BIN_DIR)/$(BINARY_NAME)-linux-amd64 ./cmd/notify
 	@echo "Building for Darwin AMD64..."
-	@GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o $(BIN_DIR)/$(BINARY_NAME)-darwin-amd64 .
+	@GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o $(BIN_DIR)/$(BINARY_NAME)-darwin-amd64 ./cmd/notify
 	@echo "Building for Darwin ARM64..."
-	@GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o $(BIN_DIR)/$(BINARY_NAME)-darwin-arm64 .
+	@GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o $(BIN_DIR)/$(BINARY_NAME)-darwin-arm64 ./cmd/notify
+
+# --- E2E Testing ---
+# Build the custom tend binary for grove-notifications E2E tests.
+test-e2e-build:
+	@echo "Building E2E test binary $(E2E_BINARY_NAME)..."
+	@go build $(LDFLAGS) -o $(BIN_DIR)/$(E2E_BINARY_NAME) ./tests/e2e
+
+# Run E2E tests. Depends on the main 'notify' binary and the test runner.
+test-e2e: build test-e2e-build
+	@echo "Running E2E tests for notify..."
+	@NOTIFY_BINARY=$(abspath $(BIN_DIR)/$(BINARY_NAME)) $(BIN_DIR)/$(E2E_BINARY_NAME) run
 
 help:
 	@echo "Grove Notifications Makefile"
@@ -97,4 +110,6 @@ help:
 	@echo "  make check       - Run all checks (fmt, vet, lint, test)"
 	@echo "  make dev         - Build with race detector"
 	@echo "  make build-all   - Cross-compile for multiple platforms"
+	@echo "  make test-e2e-build   - Build the E2E test runner binary"
+	@echo "  make test-e2e    - Run E2E tests"
 	@echo "  make help        - Show this help"

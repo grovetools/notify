@@ -2,7 +2,6 @@ package notifiers
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -30,30 +29,25 @@ func (n *NtfyNotifier) Send(title, message, priority string, tags []string) erro
 		return fmt.Errorf("ntfy URL or topic not configured")
 	}
 
-	// ntfy.sh expects the topic in the URL path, not in the JSON payload
+	// ntfy.sh expects the topic in the URL path
 	url := fmt.Sprintf("%s/%s", strings.TrimSuffix(n.URL, "/"), n.Topic)
 
-	payload := map[string]any{
-		"title":    title,
-		"message":  message,
-		"priority": priority,
-	}
-
-	if len(tags) > 0 {
-		payload["tags"] = tags
-	}
-
-	data, err := json.Marshal(payload)
-	if err != nil {
-		return fmt.Errorf("failed to marshal notification: %w", err)
-	}
-
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(data))
+	// Create request with message as body
+	req, err := http.NewRequest("POST", url, bytes.NewBufferString(message))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("Content-Type", "application/json")
+	// ntfy.sh uses headers for metadata
+	if title != "" {
+		req.Header.Set("Title", title)
+	}
+	if priority != "" {
+		req.Header.Set("Priority", priority)
+	}
+	if len(tags) > 0 {
+		req.Header.Set("Tags", strings.Join(tags, ","))
+	}
 
 	resp, err := n.client.Do(req)
 	if err != nil {
