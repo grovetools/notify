@@ -1,3 +1,9 @@
+## v0.0.4 (2025-08-12)
+
+### Bug Fixes
+
+* disable ci for now
+
 ## v0.0.3 (2025-08-12)
 
 ### Bug Fixes
