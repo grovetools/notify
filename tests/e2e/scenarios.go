@@ -5,7 +5,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
 
 	"github.com/mattsolo1/grove-tend/pkg/assert"
 	"github.com/mattsolo1/grove-tend/pkg/command"
@@ -18,9 +17,9 @@ func NotifySystemScenario() *harness.Scenario {
 		Name: "notify-system-command",
 		Steps: []harness.Step{
 			harness.NewStep("Run 'notify system'", func(ctx *harness.Context) error {
-				notifyBinary := os.Getenv("NOTIFY_BINARY")
-				if notifyBinary == "" {
-					return fmt.Errorf("NOTIFY_BINARY environment variable not set")
+				notifyBinary, err := FindProjectBinary()
+				if err != nil {
+					return err
 				}
 				
 				cmd := command.New(notifyBinary, "system", "--title", "E2E Test", "Hello from tend!")
@@ -62,9 +61,9 @@ func NotifyNtfyScenario() *harness.Scenario {
 				return nil
 			}),
 			harness.NewStep("Run 'notify ntfy' with all options", func(ctx *harness.Context) error {
-				notifyBinary := os.Getenv("NOTIFY_BINARY")
-				if notifyBinary == "" {
-					return fmt.Errorf("NOTIFY_BINARY environment variable not set")
+				notifyBinary, err := FindProjectBinary()
+				if err != nil {
+					return err
 				}
 				
 				serverURL := ctx.GetString("mock_server_url")
