@@ -1,3 +1,10 @@
+## v0.0.7 (2025-08-25)
+
+### Continuous Integration
+
+* add Git LFS disable to release workflow
+* disable Git LFS and linting in workflow
+
 ## v0.0.6 (2025-08-25)
 
 ### Chores
