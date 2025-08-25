@@ -1,3 +1,10 @@
+## v0.0.6 (2025-08-25)
+
+### Chores
+
+* **deps:** bump dependencies
+* bump dependencies
+
 ## v0.0.5 (2025-08-15)
 
 ### Chores
