@@ -1,3 +1,9 @@
+## v0.0.8 (2025-08-27)
+
+### Bug Fixes
+
+* add version cmd
+
 ## v0.0.7 (2025-08-25)
 
 ### Continuous Integration
