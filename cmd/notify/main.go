@@ -7,6 +7,7 @@ import (
 
 	"github.com/mattsolo1/grove-core/cli"
 	"github.com/mattsolo1/grove-notifications"
+	"github.com/mattsolo1/grove-notifications/cmd"
 	"github.com/spf13/cobra"
 )
 
@@ -19,6 +20,7 @@ func main() {
 	// Add subcommands
 	rootCmd.AddCommand(newSystemCmd())
 	rootCmd.AddCommand(newNtfyCmd())
+	rootCmd.AddCommand(cmd.NewVersionCmd())
 	
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
