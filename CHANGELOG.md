@@ -1,3 +1,10 @@
+## v0.0.9 (2025-08-28)
+
+### Chores
+
+* **deps:** sync Grove dependencies to latest versions
+* add Grove ecosystem files
+
 ## v0.0.8 (2025-08-27)
 
 ### Bug Fixes
