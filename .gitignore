@@ -46,3 +46,6 @@ config.local.yaml
 # Grove ecosystem
 .grove
 .grove-worktrees
+
+# Don't ignore CLAUDE.md
+!CLAUDE.md
