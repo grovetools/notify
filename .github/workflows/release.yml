@@ -44,20 +44,7 @@ jobs:
         run: |
           make build-all VERSION=${{ github.ref_name }}
 
-      - name: Run unit tests
-        run: |
-          make test
-
-      # E2E tests temporarily disabled due to notify-send dependency issues
-      # - name: Build E2E test framework
-      #   run: |
-      #     make test-e2e-build
-
-      # - name: Run E2E tests
-      #   run: |
-      #     make test-e2e
-      #   env:
-      #     CX_BINARY: ${{ github.workspace }}/bin/notify
+      # Tests already passed in CI before tagging
 
       - name: Generate checksums
         run: |
