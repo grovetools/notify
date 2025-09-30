@@ -1,4 +1,4 @@
-<!-- DOCGEN:OVERVIEW:START -->
+`grove-notifications` is a command-line tool and Go package for sending local system notifications and remote push notifications via ntfy.sh.
 
 <!-- placeholder for animated gif -->
 
@@ -33,13 +33,3 @@ notify version
 ```
 
 Requires the `grove` meta-CLI. See the [Grove Installation Guide](https://github.com/mattsolo1/grove-meta/blob/main/docs/02-installation.md) if you don't have it installed.
-
-<!-- DOCGEN:OVERVIEW:END -->
-
-<!-- DOCGEN:TOC:START -->
-
-See the [documentation](docs/) for detailed usage instructions:
-- [Overview](docs/01-overview.md) - `grove-notifications` is a command-line tool and Go package for sending local...
-- [Configuration](docs/02-configuration.md) - Configuration for `notify` is handled through command-line flags passed to it...
-
-<!-- DOCGEN:TOC:END -->
