@@ -1,3 +1,1 @@
-*
-**/grove-flow/docs
-**/grove-hooks/docs
+*.go

@@ -1,1 +1,27 @@
-{}
+{
+  "sections": {
+    "configuration": {
+      "title": "Configuration",
+      "content": "",
+      "subsections": [
+        {
+          "title": "Configuration",
+          "content": "Configuration for `notify` is handled through command-line flags passed to its subcommands. The tool does not read configuration from environment variables or dedicated configuration files.\n\n### Notification Backends\n\nThe tool supports two notification backends, selected by the subcommand used:\n\n*   **`system`**: Utilizes the host operating system's native notification mechanism by executing `osascript` on macOS and `notify-send` on Linux.\n*   **`ntfy`**: Sends an HTTP POST request to a specified [ntfy.sh](https://ntfy.sh) server instance.\n\n### System Notification Configuration (`notify system`)\n\nThe `notify system` command accepts the following flags:\n\n*   `--title \u003cstring\u003e`: Sets the notification title. Defaults to \"Grove Notification\".\n*   `--level \u003cstring\u003e`: Sets the notification level, which is prepended to the title. Accepted values are `info`, `warning`, `error`. Defaults to `info`.\n\n### Ntfy Notification Configuration (`notify ntfy`)\n\nThe `notify ntfy` command sends metadata to the ntfy server via HTTP headers. It accepts the following flags:\n\n*   `--url \u003cstring\u003e`: The base URL of the ntfy server. Defaults to `https://ntfy.sh`.\n*   `--topic \u003cstring\u003e`: The ntfy topic to publish the message to. This flag is required.\n*   `--title \u003cstring\u003e`: Sets the notification title via the `Title` HTTP header. Defaults to \"Grove Notification\".\n*   `--priority \u003cstring\u003e`: Sets the message priority via the `Priority` HTTP header. Accepted values are `min`, `low`, `default`, `high`, `urgent`. Defaults to `default`.\n*   `--tags \u003cstring\u003e`: A comma-separated list of tags sent via the `Tags` HTTP header.\n\n### Examples\n\n#### System Notification\n\nTo send a local system notification about a failed build:\n\n#### Remote Ntfy Notification\n\nTo send a notification to an ntfy topic for a successful deployment event:\n\n#### Self-Hosted Ntfy Instance\n\nTo send a notification to a self-hosted ntfy server:",
+          "code_blocks": [
+            "notify system --title \"Build Failed\" --level error \"Compilation failed in package main.\"",
+            "notify ntfy \\\n  --topic \"ci-cd-events\" \\\n  --title \"Deployment Succeeded\" \\\n  --priority high \\\n  --tags \"prod,deploy\" \\\n  \"Version v1.4.1 deployed to production cluster.\"",
+            "notify ntfy \\\n  --url \"http://ntfy.internal.corp\" \\\n  --topic \"dev-alerts\" \\\n  \"Database migration complete on staging.\""
+          ]
+        }
+      ]
+    },
+    "overview": {
+      "title": "Overview",
+      "content": "`grove-notifications` is a command-line tool and Go package for sending local system notifications and remote push notifications via ntfy.sh.\n\n\u003c!-- placeholder for animated gif --\u003e\n\n### Key Features\n\n*   Sends native desktop notifications by executing `osascript` on macOS and `notify-send` on Linux.\n*   Sends remote push notifications to a specified topic on an ntfy server via an HTTP POST request.\n*   Provides a Go API (`SendSystem`, `SendNtfy`) for use within other applications.\n*   Can be executed by other Grove tools to signal outcomes of operations like builds or tests.\n\n### Ecosystem Integration\n\nThe `notify` binary is designed to be called by other processes. For example, a build script can execute `notify system \"Build complete\"` to alert the user when a long-running task finishes. This provides a mechanism for event-driven feedback within the local development environment.\n\n### How It Works\n\nThe tool provides two primary notification mechanisms through subcommands:\n\n*   **System Notifications**: The `system` subcommand checks the host operating system via `runtime.GOOS`. On macOS, it executes `osascript` with a script to display a notification. On Linux, it executes the `notify-send` command. System notifications are not supported on other operating systems.\n*   **Ntfy Notifications**: The `ntfy` subcommand constructs and sends an HTTP POST request to a specified ntfy server URL. The message content is sent as the request body, while metadata such as title, priority, and tags are passed as HTTP headers.\n\n### Installation\n\nInstall via the Grove meta-CLI:\n\nVerify installation:\n\nRequires the `grove` meta-CLI. See the [Grove Installation Guide](https://github.com/mattsolo1/grove-meta/blob/main/docs/02-installation.md) if you don't have it installed.",
+      "code_blocks": [
+        "grove install notifications",
+        "notify version"
+      ]
+    }
+  }
+}

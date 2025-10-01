@@ -1,22 +1,22 @@
 ## Configuration
 
-Configuration for `notify` is handled through command-line flags passed to its subcommands. The tool does not currently read configuration from environment variables or dedicated configuration files.
+Configuration for `notify` is handled through command-line flags passed to its subcommands. The tool does not read configuration from environment variables or dedicated configuration files.
 
 ### Notification Backends
 
 The tool supports two notification backends, selected by the subcommand used:
 
-*   **`system`**: Utilizes the host operating system's native notification mechanism. It executes `osascript` on macOS and `notify-send` on Linux.
+*   **`system`**: Utilizes the host operating system's native notification mechanism by executing `osascript` on macOS and `notify-send` on Linux.
 *   **`ntfy`**: Sends an HTTP POST request to a specified [ntfy.sh](https://ntfy.sh) server instance.
 
-### System Notification Configuration
+### System Notification Configuration (`notify system`)
 
 The `notify system` command accepts the following flags:
 
 *   `--title <string>`: Sets the notification title. Defaults to "Grove Notification".
 *   `--level <string>`: Sets the notification level, which is prepended to the title. Accepted values are `info`, `warning`, `error`. Defaults to `info`.
 
-### Ntfy Notification Configuration
+### Ntfy Notification Configuration (`notify ntfy`)
 
 The `notify ntfy` command sends metadata to the ntfy server via HTTP headers. It accepts the following flags:
 
@@ -24,7 +24,7 @@ The `notify ntfy` command sends metadata to the ntfy server via HTTP headers. It
 *   `--topic <string>`: The ntfy topic to publish the message to. This flag is required.
 *   `--title <string>`: Sets the notification title via the `Title` HTTP header. Defaults to "Grove Notification".
 *   `--priority <string>`: Sets the message priority via the `Priority` HTTP header. Accepted values are `min`, `low`, `default`, `high`, `urgent`. Defaults to `default`.
-*   `--tags <string>`: A comma-separated list of tags sent via the `Tags` HTTP header (e.g., `prod,deploy`).
+*   `--tags <string>`: A comma-separated list of tags sent via the `Tags` HTTP header.
 
 ### Examples
 

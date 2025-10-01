@@ -1,23 +1,25 @@
+# Grove Notifications
+
 `grove-notifications` is a command-line tool and Go package for sending local system notifications and remote push notifications via ntfy.sh.
 
 <!-- placeholder for animated gif -->
 
 ### Key Features
 
-*   Sends native desktop notifications on macOS (via `osascript`) and Linux (via `notify-send`).
-*   Sends remote push notifications to a specified topic on an ntfy server.
-*   Provides a Go API (`SendSystem`, `SendNtfy`) for programmatic use within other applications.
+*   Sends native desktop notifications by executing `osascript` on macOS and `notify-send` on Linux.
+*   Sends remote push notifications to a specified topic on an ntfy server via an HTTP POST request.
+*   Provides a Go API (`SendSystem`, `SendNtfy`) for use within other applications.
 *   Can be executed by other Grove tools to signal outcomes of operations like builds or tests.
 
 ### Ecosystem Integration
 
-The `notify` binary is designed to be called by other processes. For example, a build script or another Grove tool can execute `notify system "Build complete"` to alert the user when a long-running task finishes. This allows for event-driven feedback within the local development environment.
+The `notify` binary is designed to be called by other processes. For example, a build script can execute `notify system "Build complete"` to alert the user when a long-running task finishes. This provides a mechanism for event-driven feedback within the local development environment.
 
 ### How It Works
 
-The tool is a Go application that provides two primary notification mechanisms:
+The tool provides two primary notification mechanisms through subcommands:
 
-*   **System Notifications**: The `system` subcommand checks the host operating system. On macOS, it executes `osascript` with a script to display a notification. On Linux, it executes the `notify-send` command.
+*   **System Notifications**: The `system` subcommand checks the host operating system via `runtime.GOOS`. On macOS, it executes `osascript` with a script to display a notification. On Linux, it executes the `notify-send` command. System notifications are not supported on other operating systems.
 *   **Ntfy Notifications**: The `ntfy` subcommand constructs and sends an HTTP POST request to a specified ntfy server URL. The message content is sent as the request body, while metadata such as title, priority, and tags are passed as HTTP headers.
 
 ### Installation
