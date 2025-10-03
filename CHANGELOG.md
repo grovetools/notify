@@ -1,3 +1,5 @@
+## v0.1.1-nightly.4d6373c (2025-10-03)
+
 ## v0.1.0 (2025-10-01)
 
 The documentation system has been significantly enhanced with the introduction of automatic Table of Contents (TOC) generation and updates to the `docgen` configuration (f380cf1, a827ed7). The configuration has been standardized for better maintainability (3d6d871), and the generated documentation has been made more succinct (3d7c6e2).
