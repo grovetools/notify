@@ -3,6 +3,7 @@ module github.com/mattsolo1/grove-notifications
 go 1.24.4
 
 require (
+	github.com/invopop/jsonschema v0.13.0
 	github.com/mattsolo1/grove-core v0.4.0
 	github.com/mattsolo1/grove-tend v0.4.0
 	github.com/spf13/cobra v1.9.1

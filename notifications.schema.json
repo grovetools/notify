@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mattsolo1/grove-notifications/pkg/config/notifications-config",
+  "$defs": {
+    "NtfyConfig": {
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "topic": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        }
+      },
+      "type": "object",
+      "required": [
+        "enabled",
+        "topic",
+        "url"
+      ]
+    },
+    "SystemConfig": {
+      "properties": {
+        "levels": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object",
+      "required": [
+        "levels"
+      ]
+    }
+  },
+  "properties": {
+    "ntfy": {
+      "$ref": "#/$defs/NtfyConfig"
+    },
+    "system": {
+      "$ref": "#/$defs/SystemConfig"
+    }
+  },
+  "type": "object",
+  "title": "Grove Notifications Configuration",
+  "description": "Schema for the 'notifications' extension in grove.yml."
+}
