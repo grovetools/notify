@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -43,8 +42,7 @@ Usage:
   notify system --title "Title" --level info "Message text"`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
-			title, _ := cmd.Flags().GetString("title")
+	title, _ := cmd.Flags().GetString("title")
 			if title == "" {
 				title = "Grove Notification"
 			}
@@ -60,7 +58,7 @@ Usage:
 				Field("message", message).
 				Field("level", level).
 				Pretty(fmt.Sprintf("System notification sent: %s - %s", title, message)).
-				Log(ctx)
+				Emit()
 			return nil
 		},
 	}
@@ -89,8 +87,7 @@ Usage:
   notify ntfy --topic mytopic --title "Title" --priority high --tags tag1,tag2 "Message text"`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
-			message := strings.Join(args, " ")
+	message := strings.Join(args, " ")
 
 			if url == "" {
 				url = "https://ntfy.sh" // Default ntfy server
@@ -108,7 +105,7 @@ Usage:
 				Field("tags", tags).
 				Field("url", url).
 				Pretty(fmt.Sprintf("Ntfy notification sent to topic '%s': %s - %s", topic, title, message)).
-				Log(ctx)
+				Emit()
 			return nil
 		},
 	}
