@@ -1,15 +1,19 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/mattsolo1/grove-core/cli"
+	grovelogging "github.com/mattsolo1/grove-core/logging"
 	"github.com/mattsolo1/grove-notifications"
 	"github.com/mattsolo1/grove-notifications/cmd"
 	"github.com/spf13/cobra"
 )
+
+var ulog = grovelogging.NewUnifiedLogger("grove-notifications")
 
 func main() {
 	rootCmd := cli.NewStandardCommand(
@@ -39,18 +43,24 @@ Usage:
   notify system --title "Title" --level info "Message text"`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := context.Background()
 			title, _ := cmd.Flags().GetString("title")
 			if title == "" {
 				title = "Grove Notification"
 			}
-			
+
 			message := strings.Join(args, " ")
-			
+
 			if err := notifications.SendSystem(title, message, level); err != nil {
 				return fmt.Errorf("failed to send system notification: %w", err)
 			}
-			
-			fmt.Printf("System notification sent: %s - %s\n", title, message)
+
+			ulog.Success("System notification sent").
+				Field("title", title).
+				Field("message", message).
+				Field("level", level).
+				Pretty(fmt.Sprintf("System notification sent: %s - %s", title, message)).
+				Log(ctx)
 			return nil
 		},
 	}
@@ -79,17 +89,26 @@ Usage:
   notify ntfy --topic mytopic --title "Title" --priority high --tags tag1,tag2 "Message text"`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := context.Background()
 			message := strings.Join(args, " ")
-			
+
 			if url == "" {
 				url = "https://ntfy.sh" // Default ntfy server
 			}
-			
+
 			if err := notifications.SendNtfy(url, topic, title, message, priority, tags); err != nil {
 				return fmt.Errorf("failed to send ntfy notification: %w", err)
 			}
-			
-			fmt.Printf("Ntfy notification sent to topic '%s': %s - %s\n", topic, title, message)
+
+			ulog.Success("Ntfy notification sent").
+				Field("topic", topic).
+				Field("title", title).
+				Field("message", message).
+				Field("priority", priority).
+				Field("tags", tags).
+				Field("url", url).
+				Pretty(fmt.Sprintf("Ntfy notification sent to topic '%s': %s - %s", topic, title, message)).
+				Log(ctx)
 			return nil
 		},
 	}
