@@ -1,30 +1,27 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/mattsolo1/grove-docgen/main/schema/docgen.config.schema.json
-title: "Grove Notifications"
-description: "Notification system for Grove ecosystem with support for system notifications and ntfy."
-category: "Developer Tools"
 enabled: true
+title: Grove Notifications
+description: Notification system for Grove ecosystem with support for system notifications and ntfy.
+category: Developer Tools
 settings:
-  output_dir: docs
-  rules_file: docs.rules
-  structured_output_file: pkg/docs/docs.json
-  system_prompt: default
-  model: gemini-2.5-pro
-  regeneration_mode: reference
-readme:
-  generate_toc: true
-  template: docs/README.md.tpl
-  output: README.md
-  source_section: overview
-
+    model: gemini-2.5-pro
+    regeneration_mode: reference
+    rules_file: docs.rules
+    structured_output_file: pkg/docs/docs.json
+    system_prompt: default
+    output_dir: docs
 sections:
-  - name: "overview"
-    title: "Overview"
-    order: 1
-    prompt: "prompts/01-overview.md"
-    output: "01-overview.md"
-
-  - name: "configuration"
-    title: "Configuration"
-    order: 2
-    prompt: "prompts/02-configuration.md"
-    output: "02-configuration.md"
+    - name: overview
+      title: Overview
+      order: 1
+      prompt: 01-overview.md
+      output: 01-overview.md
+    - name: configuration
+      title: Configuration
+      order: 2
+      prompt: 02-configuration.md
+      output: 02-configuration.md
+readme:
+    template: docs/README.md.tpl
+    output: README.md
+    source_section: overview
+    generate_toc: true
