@@ -25,7 +25,7 @@ func main() {
 	rootCmd.AddCommand(newNtfyCmd())
 	rootCmd.AddCommand(cmd.NewVersionCmd())
 	
-	if err := rootCmd.Execute(); err != nil {
+	if err := cli.Execute(rootCmd); err != nil {
 		os.Exit(1)
 	}
 }
