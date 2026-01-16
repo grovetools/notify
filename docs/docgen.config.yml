@@ -1,5 +1,5 @@
 enabled: true
-title: Grove Notifications
+title: notify
 description: Notification system for Grove ecosystem with support for system notifications and ntfy.
 category: Developer Tools
 settings:
