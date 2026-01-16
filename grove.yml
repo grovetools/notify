@@ -1,5 +1,6 @@
-name: grove-notifications
+name: notify
 description: Notification system for Grove ecosystem
+managed: true
 binary:
   name: notify
   path: ./bin/notify
