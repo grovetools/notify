@@ -2,7 +2,7 @@ package notifications
 
 import (
 	"fmt"
-	"github.com/mattsolo1/grove-notifications/internal/notifiers"
+	"github.com/grovetools/notify/internal/notifiers"
 )
 
 // NotificationType represents the type of notification service

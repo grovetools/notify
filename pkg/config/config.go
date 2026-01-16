@@ -3,7 +3,7 @@ package config
 import (
 	"log"
 
-	"github.com/mattsolo1/grove-core/config"
+	"github.com/grovetools/core/config"
 )
 
 //go:generate sh -c "cd ../.. && go run ./tools/schema-generator/"

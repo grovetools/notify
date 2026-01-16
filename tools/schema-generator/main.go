@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/invopop/jsonschema"
-	"github.com/mattsolo1/grove-notifications/pkg/config"
+	"github.com/grovetools/notify/pkg/config"
 )
 
 func main() {

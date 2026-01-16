@@ -5,10 +5,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/mattsolo1/grove-core/cli"
-	grovelogging "github.com/mattsolo1/grove-core/logging"
-	"github.com/mattsolo1/grove-notifications"
-	"github.com/mattsolo1/grove-notifications/cmd"
+	"github.com/grovetools/core/cli"
+	grovelogging "github.com/grovetools/core/logging"
+	"github.com/grovetools/notify"
+	"github.com/grovetools/notify/cmd"
 	"github.com/spf13/cobra"
 )
 
