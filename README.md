@@ -48,6 +48,6 @@ extensions:
 
 See the [documentation](docs/) for detailed usage instructions:
 - [Overview](docs/01-overview.md)
-- [Configuration](docs/02-configuration.md)
+- [Configuration](docs/04-configuration.md)
 
 <!-- DOCGEN:TOC:END -->
