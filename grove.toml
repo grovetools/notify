@@ -1,0 +1,10 @@
+name = "notify"
+description = "Notification system for Grove ecosystem"
+managed = true
+
+[binary]
+name = "notify"
+path = "./bin/notify"
+
+[context]
+default_rules_path = ".cx/dev-no-tests.rules"
