@@ -1,3 +1,54 @@
+## v0.6.0 (2026-02-02)
+
+This release focuses on configuration migration and documentation structure improvements. The configuration format has been migrated from YAML to TOML (3e8d2dd), accompanied by the addition of the MIT License (4ec5384) and updates to the configuration documentation (88e309a).
+
+Documentation workflows have been streamlined by moving docgen configuration and templates to the notebook environment (1a71334, 2472e91) and reorganizing context rules (6c206ef). Additionally, the overview and concept lookup instructions have been updated (a060f54, fbc0290).
+
+On the build and maintenance side, the release workflow has been restored (2d701a5), module dependencies have been updated to the grovetools namespace (0856551), and version injection during builds has been fixed (8f1a4bf).
+
+### Features
+* feat: add configuration/readme update (88e309a)
+* feat: update readme/overview (a060f54)
+
+### Bug Fixes
+* fix: update VERSION_PKG to grovetools/core path (8f1a4bf)
+
+### Documentation
+* docs: add concept lookup instructions to CLAUDE.md (fbc0290)
+
+### Chores and Refactoring
+* ci: restore release workflow (2d701a5)
+* Add MIT License (4ec5384)
+* chore: update docs.json (95469df)
+* chore: migrate grove.yml to grove.toml (3e8d2dd)
+* chore: move README template to notebook (2472e91)
+* chore: remove docgen files from repo (1a71334)
+* chore: move docs.rules to .cx/ directory (6c206ef)
+* refactor: update docgen title to match package name (d65f535)
+* chore: update go.mod for grovetools migration (0856551)
+
+### File Changes
+```
+ .cx/docs.rules                | 13 ++++++++++
+ .github/workflows/release.yml | 58 +++++++------------------------------------
+ CLAUDE.md                     | 15 ++++++++++-
+ LICENSE                       | 21 ++++++++++++++++
+ Makefile                      |  2 +-
+ README.md                     | 54 +++++++++++++++++++++-------------------
+ docs/01-overview.md           | 52 ++++++++++++++++++++------------------
+ docs/04-configuration.md      | 35 ++++++++++++++++++++++++++
+ docs/README.md.tpl            |  6 -----
+ docs/docgen.config.yml        | 27 --------------------
+ docs/docs.rules               |  1 -
+ go.mod                        | 11 ++++++--
+ go.sum                        | 49 +++++++++++++++++++++++++++++++++---
+ grove.toml                    | 10 ++++++++
+ grove.yml                     |  9 -------
+ notifications.schema.json     |  2 +-
+ pkg/docs/docs.json            | 33 +++++++++++++++++-------
+ 17 files changed, 239 insertions(+), 159 deletions(-)
+```
+
 ## v0.1.1-nightly.4d6373c (2025-10-03)
 
 ## v0.1.0 (2025-10-01)
