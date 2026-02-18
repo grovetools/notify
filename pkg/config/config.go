@@ -10,22 +10,22 @@ import (
 
 // NotificationsConfig represents the structure of the 'notifications' section in grove.yml
 type NotificationsConfig struct {
-	Ntfy   NtfyConfig   `yaml:"ntfy"`
-	System SystemConfig `yaml:"system"`
+	Ntfy   NtfyConfig   `yaml:"ntfy" jsonschema:"description=ntfy.sh push notification settings" jsonschema_extras:"x-layer=global,x-priority=70"`
+	System SystemConfig `yaml:"system" jsonschema:"description=Native system notification settings" jsonschema_extras:"x-layer=global,x-priority=71"`
 }
 
 // NtfyConfig holds settings for ntfy.sh notifications.
 type NtfyConfig struct {
-	Enabled bool   `yaml:"enabled"`
-	Topic   string `yaml:"topic"`
-	URL     string `yaml:"url"`
+	Enabled bool   `yaml:"enabled" jsonschema:"description=Enable ntfy.sh push notifications,default=false" jsonschema_extras:"x-layer=global,x-priority=70,x-important=true"`
+	Topic   string `yaml:"topic" jsonschema:"description=ntfy.sh topic name for notifications" jsonschema_extras:"x-layer=global,x-priority=71,x-important=true"`
+	URL     string `yaml:"url" jsonschema:"description=ntfy.sh server URL,default=https://ntfy.sh" jsonschema_extras:"x-layer=global,x-priority=72,x-important=true"`
 }
 
 // SystemConfig holds settings for native system notifications.
 type SystemConfig struct {
 	// Levels specifies which notification levels should trigger a system notification.
 	// e.g., ["error", "warning"]
-	Levels []string `yaml:"levels"`
+	Levels []string `yaml:"levels" jsonschema:"description=Notification levels that trigger system notifications" jsonschema_extras:"x-layer=global,x-priority=73"`
 }
 
 // Load reads the merged grove configuration and parses the 'notifications' extension.

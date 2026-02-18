@@ -5,13 +5,27 @@
     "NtfyConfig": {
       "properties": {
         "enabled": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Enable ntfy.sh push notifications",
+          "default": false,
+          "x-important": true,
+          "x-layer": "global",
+          "x-priority": "70"
         },
         "topic": {
-          "type": "string"
+          "type": "string",
+          "description": "ntfy.sh topic name for notifications",
+          "x-important": true,
+          "x-layer": "global",
+          "x-priority": "71"
         },
         "url": {
-          "type": "string"
+          "type": "string",
+          "description": "ntfy.sh server URL",
+          "default": "https://ntfy.sh",
+          "x-important": true,
+          "x-layer": "global",
+          "x-priority": "72"
         }
       },
       "type": "object",
@@ -27,7 +41,10 @@
           "items": {
             "type": "string"
           },
-          "type": "array"
+          "type": "array",
+          "description": "Notification levels that trigger system notifications",
+          "x-layer": "global",
+          "x-priority": "73"
         }
       },
       "type": "object",
@@ -38,10 +55,16 @@
   },
   "properties": {
     "ntfy": {
-      "$ref": "#/$defs/NtfyConfig"
+      "$ref": "#/$defs/NtfyConfig",
+      "description": "ntfy.sh push notification settings",
+      "x-layer": "global",
+      "x-priority": "70"
     },
     "system": {
-      "$ref": "#/$defs/SystemConfig"
+      "$ref": "#/$defs/SystemConfig",
+      "description": "Native system notification settings",
+      "x-layer": "global",
+      "x-priority": "71"
     }
   },
   "type": "object",
