@@ -1,3 +1,25 @@
+## v0.6.1 (2026-02-19)
+
+This release introduces extensions to the configuration schema (227b054), adding metadata tags such as layer, priority, and importance to support enhanced UI displays for configuration settings. Additionally, the documentation infrastructure has been updated (826a618) to migrate configuration references to a structured data format, enabling dynamic generation of descriptions and examples.
+
+### Features
+- Add x-layer, x-priority, x-important schema extensions (227b054)
+
+### Documentation
+- Migrate configuration to config-reference component (826a618)
+
+### File Changes
+```
+ docs/03-cli-reference.md      | 82 +++++++++++++++++++++++++++++++++++++++++++
+ docs/04-configuration.json    | 60 +++++++++++++++++++++++++++++++
+ docs/04-configuration.md      | 36 ++-----------------
+ docs/notify.descriptions.json |  8 +++++
+ docs/notify.examples.json     | 26 ++++++++++++++
+ notifications.schema.json     | 35 ++++++++++++++----
+ pkg/config/config.go          | 12 +++----
+ 7 files changed, 214 insertions(+), 45 deletions(-)
+```
+
 ## v0.6.0 (2026-02-02)
 
 This release focuses on configuration migration and documentation structure improvements. The configuration format has been migrated from YAML to TOML (3e8d2dd), accompanied by the addition of the MIT License (4ec5384) and updates to the configuration documentation (88e309a).
