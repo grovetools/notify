@@ -1,0 +1,26 @@
+{
+  "ntfy": {
+    "example": "[notifications]\n[notifications.ntfy]\nenabled = true\ntopic = \"grove-events\"\nurl = \"https://ntfy.sh\"",
+    "description": "Configures the ntfy.sh integration, specifying the target topic and optional server URL."
+  },
+  "ntfy.enabled": {
+    "example": "[notifications]\n[notifications.ntfy]\nenabled = true",
+    "description": "Toggles ntfy.sh push notifications on or off."
+  },
+  "ntfy.topic": {
+    "example": "[notifications]\n[notifications.ntfy]\ntopic = \"my-secret-topic-xyz\"",
+    "description": "Sets the topic name where notifications will be published. This should be kept secret if using the public instance."
+  },
+  "ntfy.url": {
+    "example": "[notifications]\n[notifications.ntfy]\nurl = \"https://ntfy.internal.corp\"",
+    "description": "Specifies a custom ntfy server URL. Defaults to 'https://ntfy.sh' if not provided."
+  },
+  "system": {
+    "example": "[notifications]\n[notifications.system]\nlevels = [\"error\", \"warning\"]",
+    "description": "Configures native desktop system notifications."
+  },
+  "system.levels": {
+    "example": "[notifications]\n[notifications.system]\nlevels = [\"info\", \"error\", \"warning\"]",
+    "description": "Defines the severity levels that will trigger a desktop notification. Common values include \"info\", \"warning\", and \"error\"."
+  }
+}

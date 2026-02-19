@@ -1,0 +1,60 @@
+{
+  "title": "Configuration",
+  "properties": [
+    {
+      "name": "ntfy",
+      "path": "ntfy",
+      "type": "object",
+      "description": "Configuration group for ntfy.sh integration, enabling push notifications to mobile or desktop devices. Use this to receive real-time alerts about long-running agent tasks or errors on your phone.",
+      "layer": "global",
+      "children": [
+        {
+          "name": "enabled",
+          "path": "ntfy.enabled",
+          "type": "boolean",
+          "description": "Master switch to toggle ntfy.sh push notifications on or off. Set this to true to start sending notifications to the configured topic.",
+          "required": true,
+          "default": false,
+          "layer": "global",
+          "important": true
+        },
+        {
+          "name": "topic",
+          "path": "ntfy.topic",
+          "type": "string",
+          "description": "The unique topic name used for your notifications on the ntfy server. Choose a sufficiently obscure or unique name to ensure privacy, as anyone subscribing to this topic will receive your alerts.",
+          "required": true,
+          "layer": "global",
+          "important": true
+        },
+        {
+          "name": "url",
+          "path": "ntfy.url",
+          "type": "string",
+          "description": "The base URL of the ntfy server to use. Defaults to the public 'https://ntfy.sh' service, but should be changed if you are running a self-hosted private ntfy instance.",
+          "required": true,
+          "default": "https://ntfy.sh",
+          "layer": "global",
+          "important": true
+        }
+      ]
+    },
+    {
+      "name": "system",
+      "path": "system",
+      "type": "object",
+      "description": "Configuration group for native operating system desktop notifications (macOS/Linux). Controls local alerts displayed directly in your desktop environment.",
+      "layer": "global",
+      "children": [
+        {
+          "name": "levels",
+          "path": "system.levels",
+          "type": "array",
+          "description": "A list of severity levels (e.g., 'error', 'warning', 'info') that will trigger a desktop notification. Use this to filter out noise and only get alerted for critical issues or task completions.",
+          "required": true,
+          "layer": "global"
+        }
+      ]
+    }
+  ]
+}
