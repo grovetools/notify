@@ -3,7 +3,7 @@ module github.com/grovetools/notify
 go 1.24.4
 
 require (
-	github.com/grovetools/core v0.6.1
+	github.com/grovetools/core v0.6.3
 	github.com/grovetools/tend v0.6.0
 	github.com/invopop/jsonschema v0.13.0
 	github.com/spf13/cobra v1.9.1
