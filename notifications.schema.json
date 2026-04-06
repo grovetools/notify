@@ -35,6 +35,62 @@
         "url"
       ]
     },
+    "SignalConfig": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable Signal messaging channel",
+          "default": false,
+          "x-important": true,
+          "x-layer": "global",
+          "x-priority": "72"
+        },
+        "cli_path": {
+          "type": "string",
+          "description": "Path to signal-cli binary",
+          "default": "/usr/local/bin/signal-cli",
+          "x-layer": "global",
+          "x-priority": "73"
+        },
+        "account": {
+          "type": "string",
+          "description": "Signal account phone number",
+          "x-important": true,
+          "x-layer": "global",
+          "x-priority": "74"
+        },
+        "allowlist": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Authorized sender phone numbers",
+          "x-layer": "global",
+          "x-priority": "75"
+        },
+        "agent_instructions": {
+          "type": "string",
+          "description": "Custom agent instructions for Signal (replaces default if set)",
+          "x-layer": "global",
+          "x-priority": "76"
+        },
+        "append_instructions": {
+          "type": "string",
+          "description": "Additional instructions appended to the default Signal agent instructions",
+          "x-layer": "global",
+          "x-priority": "77"
+        }
+      },
+      "type": "object",
+      "required": [
+        "enabled",
+        "cli_path",
+        "account",
+        "allowlist",
+        "agent_instructions",
+        "append_instructions"
+      ]
+    },
     "SystemConfig": {
       "properties": {
         "levels": {
@@ -65,6 +121,12 @@
       "description": "Native system notification settings",
       "x-layer": "global",
       "x-priority": "71"
+    },
+    "signal": {
+      "$ref": "#/$defs/SignalConfig",
+      "description": "Signal messaging channel settings",
+      "x-layer": "global",
+      "x-priority": "72"
     }
   },
   "type": "object",
