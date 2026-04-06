@@ -12,6 +12,7 @@ import (
 type NotificationsConfig struct {
 	Ntfy   NtfyConfig   `yaml:"ntfy" jsonschema:"description=ntfy.sh push notification settings" jsonschema_extras:"x-layer=global,x-priority=70"`
 	System SystemConfig `yaml:"system" jsonschema:"description=Native system notification settings" jsonschema_extras:"x-layer=global,x-priority=71"`
+	Signal SignalConfig `yaml:"signal" jsonschema:"description=Signal messaging channel settings" jsonschema_extras:"x-layer=global,x-priority=72"`
 }
 
 // NtfyConfig holds settings for ntfy.sh notifications.
@@ -19,6 +20,21 @@ type NtfyConfig struct {
 	Enabled bool   `yaml:"enabled" jsonschema:"description=Enable ntfy.sh push notifications,default=false" jsonschema_extras:"x-layer=global,x-priority=70,x-important=true"`
 	Topic   string `yaml:"topic" jsonschema:"description=ntfy.sh topic name for notifications" jsonschema_extras:"x-layer=global,x-priority=71,x-important=true"`
 	URL     string `yaml:"url" jsonschema:"description=ntfy.sh server URL,default=https://ntfy.sh" jsonschema_extras:"x-layer=global,x-priority=72,x-important=true"`
+}
+
+// SignalConfig holds settings for Signal messaging channel.
+type SignalConfig struct {
+	Enabled            bool     `yaml:"enabled" jsonschema:"description=Enable Signal messaging channel,default=false" jsonschema_extras:"x-layer=global,x-priority=72,x-important=true"`
+	CLIPath            string   `yaml:"cli_path" jsonschema:"description=Path to signal-cli binary,default=/usr/local/bin/signal-cli" jsonschema_extras:"x-layer=global,x-priority=73"`
+	Account            string   `yaml:"account" jsonschema:"description=Signal account phone number" jsonschema_extras:"x-layer=global,x-priority=74,x-important=true"`
+	Allowlist          []string `yaml:"allowlist" jsonschema:"description=Authorized sender phone numbers" jsonschema_extras:"x-layer=global,x-priority=75"`
+	AgentInstructions  string   `yaml:"agent_instructions" jsonschema:"description=Custom agent instructions for Signal (replaces default if set)" jsonschema_extras:"x-layer=global,x-priority=76"`
+	AppendInstructions string   `yaml:"append_instructions" jsonschema:"description=Additional instructions appended to the default Signal agent instructions" jsonschema_extras:"x-layer=global,x-priority=77"`
+}
+
+// AutonomousDefaults holds default settings for autonomous idle pinging.
+type AutonomousDefaults struct {
+	DefaultPrompt string `yaml:"default_prompt" jsonschema:"description=Default idle ping prompt when not specified per-job" jsonschema_extras:"x-layer=global,x-priority=78"`
 }
 
 // SystemConfig holds settings for native system notifications.
@@ -65,6 +81,20 @@ func Load() *NotificationsConfig {
 		cfg.System.Levels = userCfg.System.Levels
 	}
 
+	// Signal config
+	if userCfg.Signal.Account != "" || userCfg.Signal.CLIPath != "" {
+		cfg.Signal.Enabled = userCfg.Signal.Enabled
+	}
+	if userCfg.Signal.CLIPath != "" {
+		cfg.Signal.CLIPath = userCfg.Signal.CLIPath
+	}
+	if userCfg.Signal.Account != "" {
+		cfg.Signal.Account = userCfg.Signal.Account
+	}
+	if len(userCfg.Signal.Allowlist) > 0 {
+		cfg.Signal.Allowlist = userCfg.Signal.Allowlist
+	}
+
 	return cfg
 }
 
@@ -77,6 +107,10 @@ func defaultConfig() *NotificationsConfig {
 		},
 		System: SystemConfig{
 			Levels: []string{"error", "warning"},
+		},
+		Signal: SignalConfig{
+			Enabled: false,
+			CLIPath: "/usr/local/bin/signal-cli",
 		},
 	}
 }

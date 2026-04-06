@@ -23,6 +23,7 @@ func main() {
 	// Add subcommands
 	rootCmd.AddCommand(newSystemCmd())
 	rootCmd.AddCommand(newNtfyCmd())
+	rootCmd.AddCommand(newSignalCmd())
 	rootCmd.AddCommand(cmd.NewVersionCmd())
 	
 	if err := cli.Execute(rootCmd); err != nil {
