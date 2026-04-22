@@ -1,17 +1,13 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"net"
-	"net/http"
 	"os"
 	"strings"
-	"time"
 
-	"github.com/grovetools/core/pkg/paths"
+	"github.com/grovetools/core/pkg/daemon"
+	"github.com/grovetools/core/pkg/models"
 	"github.com/grovetools/notify/pkg/channels/signal"
 	"github.com/grovetools/notify/pkg/config"
 	"github.com/spf13/cobra"
@@ -97,46 +93,17 @@ Usage:
 	return cmd
 }
 
-// channelSendRequest matches the daemon's POST /api/channels/send shape.
-type channelSendRequest struct {
-	JobID     string `json:"job_id"`
-	Recipient string `json:"recipient,omitempty"`
-	Message   string `json:"message"`
-}
-
 // sendViaDaemon sends a message through the grove daemon's channel API.
+// Uses daemon.NewWithAutoStart so GROVE_SCOPE routes to the correct scoped
+// daemon (or auto-starts one) instead of hitting the legacy unscoped socket.
 func sendViaDaemon(jobID, recipient, message string) error {
-	socketPath := paths.SocketPath()
+	client := daemon.NewWithAutoStart()
+	defer client.Close()
 
-	client := &http.Client{
-		Transport: &http.Transport{
-			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
-				return net.Dial("unix", socketPath)
-			},
-		},
-		Timeout: 10 * time.Second,
-	}
-
-	payload := channelSendRequest{
+	_, err := client.SendChannelMessage(context.Background(), models.ChannelSendRequest{
 		JobID:     jobID,
 		Recipient: recipient,
 		Message:   message,
-	}
-
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return fmt.Errorf("marshal request: %w", err)
-	}
-
-	resp, err := client.Post("http://daemon/api/channels/send", "application/json", bytes.NewReader(body))
-	if err != nil {
-		return fmt.Errorf("daemon request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("daemon returned status %d", resp.StatusCode)
-	}
-
-	return nil
+	})
+	return err
 }
