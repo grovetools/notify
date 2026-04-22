@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"sync"
+	"time"
 
 	"github.com/grovetools/notify/pkg/channels"
 )
@@ -43,6 +44,38 @@ func NewChannel(cfg Config) *Channel {
 	}
 }
 
+// killOrphanedSignalCLIDaemons terminates any running signal-cli daemon
+// processes before a fresh one is spawned. When groved is killed
+// ungracefully (SIGKILL, crash), its child signal-cli gets reparented to
+// init and keeps the JSON-RPC socket bound, but its stdout goes nowhere.
+// A new groved starting up would race against the orphan on socket bind
+// and lose inbound routing. Killing orphans first guarantees the new
+// signal-cli is a clean child of the current groved.
+//
+// Matches `signal-cli ... daemon --socket ...` specifically (the daemon-mode
+// invocation) to avoid killing one-shot `signal-cli send` subprocesses.
+func killOrphanedSignalCLIDaemons() {
+	// pkill returns non-zero when no processes match; ignore error.
+	_ = exec.Command("pkill", "-TERM", "-f", "signal-cli.*daemon.*--socket").Run()
+	// Brief wait so the JVM has a chance to release its socket fd before
+	// the new signal-cli tries to bind. signal-cli responds to SIGTERM
+	// within a few hundred ms in practice.
+	waitForSignalCLIExit(1 * time.Second)
+}
+
+// waitForSignalCLIExit polls pgrep until no matching daemon processes
+// remain or the timeout elapses. Cheap and more reliable than a flat sleep.
+func waitForSignalCLIExit(timeout time.Duration) {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if err := exec.Command("pgrep", "-f", "signal-cli.*daemon.*--socket").Run(); err != nil {
+			// pgrep returns 1 when nothing matches — orphans are gone.
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+}
+
 // Name returns the channel identifier.
 func (c *Channel) Name() string { return "signal" }
 
@@ -60,7 +93,14 @@ func (c *Channel) Start(ctx context.Context, onMessage func(channels.InboundMess
 	c.running = true
 	c.mu.Unlock()
 
-	// Clean up stale signal-cli socket from previous runs
+	// Kill any orphaned signal-cli daemon processes from a previous
+	// groved lifecycle. When groved dies ungracefully, its child
+	// signal-cli reparents to init and keeps its socket bound, but
+	// its stdout goes nowhere — so cross-daemon inbound routing breaks.
+	// Force-restart is the cleanest fix.
+	killOrphanedSignalCLIDaemons()
+
+	// Clean up stale signal-cli socket file from previous runs.
 	if socketPath := c.signalSocketPath(); socketPath != "" {
 		os.Remove(socketPath)
 	}
