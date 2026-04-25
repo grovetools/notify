@@ -9,6 +9,13 @@ path = "./bin/notify"
 [context]
 default_rules = "dev-no-tests"
 
+[[hooks.on_stop]]
+name = "tests"
+command = "make build && tend run -p"
+run_if = "changes"
+cancel_previous = true
+timeout = 300
+
 [[hooks.post_tool_use]]
 name = "concept-reminder"
 if = "Bash(git commit *)"
