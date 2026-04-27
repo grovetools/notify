@@ -8,9 +8,10 @@ import (
 
 	"github.com/grovetools/core/pkg/daemon"
 	"github.com/grovetools/core/pkg/models"
+	"github.com/spf13/cobra"
+
 	"github.com/grovetools/notify/pkg/channels/signal"
 	"github.com/grovetools/notify/pkg/config"
-	"github.com/spf13/cobra"
 )
 
 func newSignalCmd() *cobra.Command {

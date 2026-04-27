@@ -7,9 +7,10 @@ import (
 
 	"github.com/grovetools/core/cli"
 	grovelogging "github.com/grovetools/core/logging"
-	"github.com/grovetools/notify"
-	"github.com/grovetools/notify/cmd"
 	"github.com/spf13/cobra"
+
+	notifications "github.com/grovetools/notify"
+	"github.com/grovetools/notify/cmd"
 )
 
 var ulog = grovelogging.NewUnifiedLogger("grove-notifications")

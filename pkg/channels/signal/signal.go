@@ -107,7 +107,7 @@ func (c *Channel) Start(ctx context.Context, onMessage func(channels.InboundMess
 
 	// Start signal-cli daemon mode — stays connected, streams received messages to stdout,
 	// and exposes a JSON-RPC socket for sending.
-	c.daemonCmd = exec.CommandContext(listenCtx, c.config.CLIPath, "-a", c.config.Account, "-o", "json", "daemon", "--socket", "--receive-mode", "on-start")
+	c.daemonCmd = exec.CommandContext(listenCtx, c.config.CLIPath, "-a", c.config.Account, "-o", "json", "daemon", "--socket", "--receive-mode", "on-start") //nolint:gosec // CLIPath is from trusted config
 	stdout, err := c.daemonCmd.StdoutPipe()
 	if err != nil {
 		return fmt.Errorf("failed to create signal-cli stdout pipe: %w", err)
@@ -280,7 +280,7 @@ func (c *Channel) sendViaSocket(socketPath, recipient, content string) (*channel
 
 // sendViaCommand sends a message by spawning signal-cli send (fallback).
 func (c *Channel) sendViaCommand(recipient, content string) (*channels.SendResult, error) {
-	cmd := exec.Command(c.config.CLIPath, "-a", c.config.Account, "send", "-m", content, recipient)
+	cmd := exec.Command(c.config.CLIPath, "-a", c.config.Account, "send", "-m", content, recipient) //nolint:gosec // CLIPath is from trusted config
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("signal-cli send failed: %w (output: %s)", err, string(output))
