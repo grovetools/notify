@@ -53,7 +53,7 @@ func NotifyNtfyScenario() *harness.Scenario {
 					lastRequest.Headers = r.Header
 					lastRequest.Body, _ = io.ReadAll(r.Body)
 					w.WriteHeader(http.StatusOK)
-					w.Write([]byte(`{"success":true}`))
+					_, _ = w.Write([]byte(`{"success":true}`))
 				}))
 				ctx.Set("mock_server_url", mockServer.URL)
 				ctx.Set("lastRequest", &lastRequest)

@@ -116,7 +116,7 @@ Usage:
 	cmd.Flags().StringVar(&priority, "priority", "default", "Priority (min, low, default, high, urgent)")
 	cmd.Flags().StringSliceVar(&tags, "tags", nil, "Comma-separated tags")
 	cmd.Flags().StringVar(&url, "url", "", "Ntfy server URL (default: https://ntfy.sh)")
-	cmd.MarkFlagRequired("topic")
+	_ = cmd.MarkFlagRequired("topic")
 	
 	return cmd
 }

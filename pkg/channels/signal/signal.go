@@ -188,8 +188,8 @@ func (c *Channel) Stop(ctx context.Context) error {
 	}
 
 	if c.daemonCmd != nil && c.daemonCmd.Process != nil {
-		c.daemonCmd.Process.Kill()
-		c.daemonCmd.Wait()
+		_ = c.daemonCmd.Process.Kill()
+		_ = c.daemonCmd.Wait()
 	}
 
 	c.running = false
