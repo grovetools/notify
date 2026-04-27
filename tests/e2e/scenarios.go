@@ -20,11 +20,11 @@ func NotifySystemScenario() *harness.Scenario {
 				if err != nil {
 					return err
 				}
-				
+
 				cmd := command.New(notifyBinary, "system", "--title", "E2E Test", "Hello from tend!")
 				result := cmd.Run()
 				ctx.ShowCommandOutput(cmd.String(), result.Stdout, result.Stderr)
-				
+
 				if err := assert.Equal(0, result.ExitCode, "notify system should exit successfully"); err != nil {
 					return err
 				}
@@ -38,8 +38,8 @@ func NotifySystemScenario() *harness.Scenario {
 func NotifyNtfyScenario() *harness.Scenario {
 	var mockServer *httptest.Server
 	var lastRequest struct {
-		Body []byte
-		Path string
+		Body    []byte
+		Path    string
 		Headers http.Header
 	}
 
@@ -64,9 +64,9 @@ func NotifyNtfyScenario() *harness.Scenario {
 				if err != nil {
 					return err
 				}
-				
+
 				serverURL := ctx.GetString("mock_server_url")
-				
+
 				cmd := command.New(notifyBinary, "ntfy",
 					"--url", serverURL,
 					"--topic", "test-topic",
@@ -77,7 +77,7 @@ func NotifyNtfyScenario() *harness.Scenario {
 				)
 				result := cmd.Run()
 				ctx.ShowCommandOutput(cmd.String(), result.Stdout, result.Stderr)
-				
+
 				if err := assert.Equal(0, result.ExitCode, "notify ntfy should exit successfully"); err != nil {
 					return err
 				}

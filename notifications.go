@@ -2,6 +2,7 @@ package notifications
 
 import (
 	"fmt"
+
 	"github.com/grovetools/notify/internal/notifiers"
 )
 

@@ -19,13 +19,13 @@ func main() {
 		"notify",
 		"Notification system for Grove ecosystem",
 	)
-	
+
 	// Add subcommands
 	rootCmd.AddCommand(newSystemCmd())
 	rootCmd.AddCommand(newNtfyCmd())
 	rootCmd.AddCommand(newSignalCmd())
 	rootCmd.AddCommand(cmd.NewVersionCmd())
-	
+
 	if err := cli.Execute(rootCmd); err != nil {
 		os.Exit(1)
 	}
@@ -33,7 +33,7 @@ func main() {
 
 func newSystemCmd() *cobra.Command {
 	var level string
-	
+
 	cmd := &cobra.Command{
 		Use:   "system [args...]",
 		Short: "Send a system notification",
@@ -43,7 +43,7 @@ Usage:
   notify system --title "Title" --level info "Message text"`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-	title, _ := cmd.Flags().GetString("title")
+			title, _ := cmd.Flags().GetString("title")
 			if title == "" {
 				title = "Grove Notification"
 			}
@@ -63,10 +63,10 @@ Usage:
 			return nil
 		},
 	}
-	
+
 	cmd.Flags().String("title", "Grove Notification", "Notification title")
 	cmd.Flags().StringVar(&level, "level", "info", "Notification level (info, warning, error)")
-	
+
 	return cmd
 }
 
@@ -78,7 +78,7 @@ func newNtfyCmd() *cobra.Command {
 		tags     []string
 		url      string
 	)
-	
+
 	cmd := &cobra.Command{
 		Use:   "ntfy [args...]",
 		Short: "Send a notification via ntfy",
@@ -88,7 +88,7 @@ Usage:
   notify ntfy --topic mytopic --title "Title" --priority high --tags tag1,tag2 "Message text"`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-	message := strings.Join(args, " ")
+			message := strings.Join(args, " ")
 
 			if url == "" {
 				url = "https://ntfy.sh" // Default ntfy server
@@ -110,13 +110,13 @@ Usage:
 			return nil
 		},
 	}
-	
+
 	cmd.Flags().StringVar(&topic, "topic", "", "Ntfy topic (required)")
 	cmd.Flags().StringVar(&title, "title", "Grove Notification", "Notification title")
 	cmd.Flags().StringVar(&priority, "priority", "default", "Priority (min, low, default, high, urgent)")
 	cmd.Flags().StringSliceVar(&tags, "tags", nil, "Comma-separated tags")
 	cmd.Flags().StringVar(&url, "url", "", "Ntfy server URL (default: https://ntfy.sh)")
 	_ = cmd.MarkFlagRequired("topic")
-	
+
 	return cmd
 }
