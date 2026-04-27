@@ -10,6 +10,10 @@ path = "./bin/notify"
 default_rules = "dev-no-tests"
 
 [[hooks.on_stop]]
+name = "Format Go files with gofumpt"
+command = "gofumpt -w ."
+run_if = "changes"
+[[hooks.on_stop]]
 name = "tests"
 command = "make build && tend run -p"
 run_if = "changes"
