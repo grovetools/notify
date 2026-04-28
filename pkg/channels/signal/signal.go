@@ -248,11 +248,23 @@ func (c *Channel) runDaemon(ctx context.Context, onMessage func(channels.Inbound
 // Falls back to spawning a separate signal-cli send process if the socket isn't available.
 func (c *Channel) Send(ctx context.Context, req channels.OutboundMessage) (*channels.SendResult, error) {
 	socketPath := c.signalSocketPath()
+	ulog.Info("Send called").
+		Field("recipient", req.Recipient).
+		Field("msg_len", len(req.Message)).
+		Field("socket", socketPath).
+		StructuredOnly().Log(ctx)
+
 	if socketPath != "" {
-		return c.sendViaSocket(socketPath, req.Recipient, req.Message)
+		result, err := c.sendViaSocket(socketPath, req.Recipient, req.Message)
+		if err != nil {
+			ulog.Error("sendViaSocket failed").Err(err).StructuredOnly().Log(ctx)
+		} else {
+			ulog.Info("sendViaSocket succeeded").StructuredOnly().Log(ctx)
+		}
+		return result, err
 	}
 
-	// Fallback: spawn signal-cli send
+	ulog.Info("falling back to sendViaCommand").StructuredOnly().Log(ctx)
 	return c.sendViaCommand(req.Recipient, req.Message)
 }
 
@@ -336,10 +348,12 @@ func (c *Channel) sendViaSocket(socketPath, recipient, content string) (*channel
 	if _, err := conn.Write(data); err != nil {
 		return nil, fmt.Errorf("failed to write to signal-cli socket: %w", err)
 	}
+	ulog.Debug("sendViaSocket: wrote request, waiting for response").StructuredOnly().Log(context.Background())
 
 	// Read response to get the timestamp for routing
 	scanner := bufio.NewScanner(conn)
 	if scanner.Scan() {
+		ulog.Debug("sendViaSocket: got response").StructuredOnly().Log(context.Background())
 		var resp struct {
 			Result struct {
 				Timestamp int64 `json:"timestamp"`
