@@ -315,6 +315,7 @@ func (c *Channel) sendViaSocket(socketPath, recipient, content string) (*channel
 		return nil, fmt.Errorf("failed to connect to signal-cli socket: %w", err)
 	}
 	defer conn.Close()
+	_ = conn.SetDeadline(time.Now().Add(30 * time.Second))
 
 	request := map[string]any{
 		"jsonrpc": "2.0",
