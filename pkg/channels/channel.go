@@ -2,7 +2,10 @@
 // for external messaging services (Signal, Telegram, Slack, etc.).
 package channels
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 // Quote represents a reply/quote reference in an inbound message.
 type Quote struct {
@@ -30,20 +33,20 @@ type SendResult struct {
 	Timestamp int64 // Channel-native message ID (e.g., Signal timestamp) for routing table
 }
 
+// ChannelStatus reports the health and supervision state of a channel.
+type ChannelStatus struct {
+	IsAlive       bool
+	RestartCount  int
+	LastRestartAt time.Time
+}
+
 // Channel is a bidirectional communication channel with an external messaging service.
 // Implementations handle the raw IPC with the external service and convert
 // native message formats into the generic types above.
 type Channel interface {
-	// Name returns the channel identifier (e.g., "signal", "telegram").
 	Name() string
-
-	// Start begins listening for inbound messages. The onMessage callback is
-	// invoked for each received message. Start must be non-blocking.
 	Start(ctx context.Context, onMessage func(InboundMessage)) error
-
-	// Send sends an outbound message and returns metadata for routing table updates.
 	Send(ctx context.Context, req OutboundMessage) (*SendResult, error)
-
-	// Stop gracefully shuts down the channel.
 	Stop(ctx context.Context) error
+	Status() ChannelStatus
 }

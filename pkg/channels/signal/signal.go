@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"os/exec"
@@ -30,6 +31,10 @@ type Channel struct {
 	cancel    context.CancelFunc
 	allowlist map[string]bool
 	daemonCmd *exec.Cmd
+
+	restartCount  int
+	lastRestartAt time.Time
+	alive         bool
 }
 
 // NewChannel creates a new Signal channel with the given configuration.
@@ -84,6 +89,17 @@ func (c *Channel) IsAllowed(senderID string) bool {
 	return c.allowlist[senderID]
 }
 
+// Status returns the supervision state of the signal-cli subprocess.
+func (c *Channel) Status() channels.ChannelStatus {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return channels.ChannelStatus{
+		IsAlive:       c.alive,
+		RestartCount:  c.restartCount,
+		LastRestartAt: c.lastRestartAt,
+	}
+}
+
 // Start begins the signal-cli daemon and routes inbound messages via the callback.
 func (c *Channel) Start(ctx context.Context, onMessage func(channels.InboundMessage)) error {
 	listenCtx, cancel := context.WithCancel(ctx)
@@ -93,77 +109,112 @@ func (c *Channel) Start(ctx context.Context, onMessage func(channels.InboundMess
 	c.running = true
 	c.mu.Unlock()
 
-	// Kill any orphaned signal-cli daemon processes from a previous
-	// groved lifecycle. When groved dies ungracefully, its child
-	// signal-cli reparents to init and keeps its socket bound, but
-	// its stdout goes nowhere — so cross-daemon inbound routing breaks.
-	// Force-restart is the cleanest fix.
 	killOrphanedSignalCLIDaemons()
 
-	// Clean up stale signal-cli socket file from previous runs.
 	if socketPath := c.signalSocketPath(); socketPath != "" {
 		os.Remove(socketPath)
 	}
 
-	// Start signal-cli daemon mode — stays connected, streams received messages to stdout,
-	// and exposes a JSON-RPC socket for sending.
-	c.daemonCmd = exec.CommandContext(listenCtx, c.config.CLIPath, "-a", c.config.Account, "-o", "json", "daemon", "--socket", "--receive-mode", "on-start") //nolint:gosec // CLIPath is from trusted config
-	stdout, err := c.daemonCmd.StdoutPipe()
-	if err != nil {
-		return fmt.Errorf("failed to create signal-cli stdout pipe: %w", err)
-	}
-
-	if err := c.daemonCmd.Start(); err != nil {
-		return fmt.Errorf("failed to start signal-cli daemon: %w", err)
-	}
-
-	// Read incoming messages from daemon stdout
-	go func() {
-		scanner := bufio.NewScanner(stdout)
-		buf := make([]byte, 0, 64*1024)
-		scanner.Buffer(buf, 1024*1024)
-
-		for scanner.Scan() {
-			select {
-			case <-listenCtx.Done():
-				return
-			default:
-			}
-
-			var msg signalMessage
-			if err := json.Unmarshal(scanner.Bytes(), &msg); err != nil {
-				continue
-			}
-
-			if msg.Envelope.DataMessage == nil || msg.Envelope.DataMessage.Message == "" {
-				continue
-			}
-
-			sender := msg.Envelope.Source
-			if !c.IsAllowed(sender) {
-				continue
-			}
-
-			inbound := channels.InboundMessage{
-				Channel: c.Name(),
-				Source:  sender,
-				Message: msg.Envelope.DataMessage.Message,
-			}
-
-			// Parse quote for reply-based routing
-			if msg.Envelope.DataMessage.Quote != nil {
-				inbound.Quote = &channels.Quote{
-					ID:     msg.Envelope.DataMessage.Quote.ID,
-					Author: msg.Envelope.DataMessage.Quote.Author,
-					Text:   msg.Envelope.DataMessage.Quote.Text,
-				}
-			}
-
-			onMessage(inbound)
-		}
-	}()
-
+	go c.supervisorLoop(listenCtx, onMessage)
 	return nil
+}
+
+func (c *Channel) supervisorLoop(ctx context.Context, onMessage func(channels.InboundMessage)) {
+	backoff := time.Second
+	const maxBackoff = 30 * time.Second
+
+	for {
+		err := c.runDaemon(ctx, onMessage)
+
+		select {
+		case <-ctx.Done():
+			c.mu.Lock()
+			c.alive = false
+			c.mu.Unlock()
+			return
+		default:
+		}
+
+		c.mu.Lock()
+		c.alive = false
+		c.restartCount++
+		c.lastRestartAt = time.Now()
+		c.mu.Unlock()
+
+		log.Printf("[signal] signal-cli exited unexpectedly (err=%v), restarting in %v (restart #%d)", err, backoff, c.restartCount)
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(backoff):
+		}
+
+		backoff *= 2
+		if backoff > maxBackoff {
+			backoff = maxBackoff
+		}
+	}
+}
+
+func (c *Channel) runDaemon(ctx context.Context, onMessage func(channels.InboundMessage)) error {
+	cmd := exec.CommandContext(ctx, c.config.CLIPath, "-a", c.config.Account, "-o", "json", "daemon", "--socket", "--receive-mode", "on-start") //nolint:gosec // CLIPath is from trusted config
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("stdout pipe: %w", err)
+	}
+
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("start: %w", err)
+	}
+
+	c.mu.Lock()
+	c.daemonCmd = cmd
+	c.alive = true
+	c.mu.Unlock()
+
+	scanner := bufio.NewScanner(stdout)
+	buf := make([]byte, 0, 64*1024)
+	scanner.Buffer(buf, 1024*1024)
+
+	for scanner.Scan() {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		var msg signalMessage
+		if err := json.Unmarshal(scanner.Bytes(), &msg); err != nil {
+			continue
+		}
+
+		if msg.Envelope.DataMessage == nil || msg.Envelope.DataMessage.Message == "" {
+			continue
+		}
+
+		sender := msg.Envelope.Source
+		if !c.IsAllowed(sender) {
+			continue
+		}
+
+		inbound := channels.InboundMessage{
+			Channel: c.Name(),
+			Source:  sender,
+			Message: msg.Envelope.DataMessage.Message,
+		}
+
+		if msg.Envelope.DataMessage.Quote != nil {
+			inbound.Quote = &channels.Quote{
+				ID:     msg.Envelope.DataMessage.Quote.ID,
+				Author: msg.Envelope.DataMessage.Quote.Author,
+				Text:   msg.Envelope.DataMessage.Quote.Text,
+			}
+		}
+
+		onMessage(inbound)
+	}
+
+	return cmd.Wait()
 }
 
 // Send sends an outbound message via signal-cli's JSON-RPC socket.
