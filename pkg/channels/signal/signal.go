@@ -6,15 +6,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"os/exec"
 	"sync"
 	"time"
 
+	grovelogging "github.com/grovetools/core/logging"
 	"github.com/grovetools/notify/pkg/channels"
 )
+
+var ulog = grovelogging.NewUnifiedLogger("groved.signal")
 
 // Config holds Signal channel configuration.
 type Config struct {
@@ -141,7 +143,10 @@ func (c *Channel) supervisorLoop(ctx context.Context, onMessage func(channels.In
 		c.lastRestartAt = time.Now()
 		c.mu.Unlock()
 
-		log.Printf("[signal] signal-cli exited unexpectedly (err=%v), restarting in %v (restart #%d)", err, backoff, c.restartCount)
+		ulog.Warn("signal-cli exited unexpectedly").Err(err).
+			Field("backoff", backoff.String()).
+			Field("restart_count", c.restartCount).
+			StructuredOnly().Log(ctx)
 
 		select {
 		case <-ctx.Done():
@@ -173,6 +178,8 @@ func (c *Channel) runDaemon(ctx context.Context, onMessage func(channels.Inbound
 		return fmt.Errorf("start: %w", err)
 	}
 
+	ulog.Info("signal-cli started").Field("pid", cmd.Process.Pid).StructuredOnly().Log(ctx)
+
 	c.mu.Lock()
 	c.daemonCmd = cmd
 	c.alive = true
@@ -191,6 +198,9 @@ func (c *Channel) runDaemon(ctx context.Context, onMessage func(channels.Inbound
 
 		var msg signalMessage
 		if err := json.Unmarshal(scanner.Bytes(), &msg); err != nil {
+			ulog.Debug("unparseable line from signal-cli").
+				Field("line", scanner.Text()[:min(len(scanner.Text()), 200)]).
+				StructuredOnly().Log(ctx)
 			continue
 		}
 
@@ -200,8 +210,15 @@ func (c *Channel) runDaemon(ctx context.Context, onMessage func(channels.Inbound
 
 		sender := msg.Envelope.Source
 		if !c.IsAllowed(sender) {
+			ulog.Warn("dropped message from unlisted sender").
+				Field("sender", sender).StructuredOnly().Log(ctx)
 			continue
 		}
+
+		ulog.Info("inbound message received").
+			Field("sender", sender).
+			Field("len", len(msg.Envelope.DataMessage.Message)).
+			StructuredOnly().Log(ctx)
 
 		inbound := channels.InboundMessage{
 			Channel: c.Name(),
@@ -219,6 +236,10 @@ func (c *Channel) runDaemon(ctx context.Context, onMessage func(channels.Inbound
 
 		onMessage(inbound)
 	}
+
+	ulog.Warn("signal-cli stdout scanner exited").
+		Field("scanner_err", scanner.Err()).
+		StructuredOnly().Log(ctx)
 
 	return cmd.Wait()
 }
