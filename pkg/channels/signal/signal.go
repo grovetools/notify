@@ -149,6 +149,12 @@ func (c *Channel) supervisorLoop(ctx context.Context, onMessage func(channels.In
 		case <-time.After(backoff):
 		}
 
+		// Kill any orphaned signal-cli before restarting to avoid config lock contention
+		killOrphanedSignalCLIDaemons()
+		if socketPath := c.signalSocketPath(); socketPath != "" {
+			os.Remove(socketPath)
+		}
+
 		backoff *= 2
 		if backoff > maxBackoff {
 			backoff = maxBackoff
