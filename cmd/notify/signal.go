@@ -103,6 +103,7 @@ func sendViaDaemon(jobID, recipient, message string) error {
 
 	_, err := client.SendChannelMessage(context.Background(), models.ChannelSendRequest{
 		JobID:     jobID,
+		JobTitle:  os.Getenv("GROVE_FLOW_JOB_TITLE"),
 		Recipient: recipient,
 		Message:   message,
 	})

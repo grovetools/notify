@@ -342,6 +342,9 @@ func (c *Channel) sendViaSocket(socketPath, recipient, content string) (*channel
 		var resp struct {
 			Result struct {
 				Timestamp int64 `json:"timestamp"`
+				Results   []struct {
+					Timestamp int64 `json:"timestamp"`
+				} `json:"results"`
 			} `json:"result"`
 			Error any `json:"error"`
 		}
@@ -349,7 +352,11 @@ func (c *Channel) sendViaSocket(socketPath, recipient, content string) (*channel
 			if resp.Error != nil {
 				return nil, fmt.Errorf("signal-cli JSON-RPC error: %v", resp.Error)
 			}
-			return &channels.SendResult{Timestamp: resp.Result.Timestamp}, nil
+			ts := resp.Result.Timestamp
+			if ts == 0 && len(resp.Result.Results) > 0 {
+				ts = resp.Result.Results[0].Timestamp
+			}
+			return &channels.SendResult{Timestamp: ts}, nil
 		}
 	}
 
