@@ -18,6 +18,7 @@ type Quote struct {
 type InboundMessage struct {
 	Channel string // Channel name, e.g. "signal"
 	Source  string // Channel-native sender ID (e.g., phone number)
+	GroupID string // Non-empty if message came from a group
 	Message string // Message text
 	Quote   *Quote // Non-nil if this is a reply to a previous message
 }
@@ -25,6 +26,7 @@ type InboundMessage struct {
 // OutboundMessage represents a message to be sent via an external channel.
 type OutboundMessage struct {
 	Recipient string // Channel-native recipient ID
+	GroupID   string // Signal group ID; when set, sends to group instead of recipient
 	Message   string // Message text
 }
 

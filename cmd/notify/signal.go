@@ -17,6 +17,7 @@ import (
 func newSignalCmd() *cobra.Command {
 	var (
 		to     string
+		group  string
 		direct bool
 	)
 
@@ -31,6 +32,7 @@ Falls back to direct signal-cli invocation when daemon is unavailable or --direc
 Usage:
   notify signal "Hello from the agent"
   notify signal --to "+1234567890" "Targeted message"
+  notify signal --group "base64groupid" "Group message"
   notify signal --direct "Bypass daemon"`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -44,7 +46,7 @@ Usage:
 			// If running inside a flow job and not forced direct, route through daemon
 			jobID := os.Getenv("GROVE_FLOW_JOB_ID")
 			if jobID != "" && !direct {
-				err := sendViaDaemon(jobID, to, message)
+				err := sendViaDaemon(jobID, to, group, message)
 				if err == nil {
 					ulog.Success("Signal message sent via daemon").
 						Field("job_id", jobID).
@@ -60,10 +62,19 @@ Usage:
 
 			// Direct send via signal-cli
 			recipient := to
-			if recipient == "" {
-				// Broadcast to all allowlisted contacts
+			if recipient == "" && group == "" {
+				// Broadcast: prefer first configured group, fall back to individual contacts
+				if len(cfg.Signal.Groups) > 0 {
+					if err := signal.SendDirect(cfg.Signal.CLIPath, cfg.Signal.Account, "", cfg.Signal.Groups[0], message); err != nil {
+						return fmt.Errorf("failed to send Signal group message: %w", err)
+					}
+					ulog.Success("Signal message sent to group").
+						Pretty("Signal message sent to group").
+						Emit()
+					return nil
+				}
 				for _, contact := range cfg.Signal.Allowlist {
-					if err := signal.SendDirect(cfg.Signal.CLIPath, cfg.Signal.Account, contact, message); err != nil {
+					if err := signal.SendDirect(cfg.Signal.CLIPath, cfg.Signal.Account, contact, "", message); err != nil {
 						ulog.Error("Failed to send to contact").
 							Field("recipient", contact).
 							Field("error", err.Error()).
@@ -76,19 +87,24 @@ Usage:
 				return nil
 			}
 
-			if err := signal.SendDirect(cfg.Signal.CLIPath, cfg.Signal.Account, recipient, message); err != nil {
+			if err := signal.SendDirect(cfg.Signal.CLIPath, cfg.Signal.Account, recipient, group, message); err != nil {
 				return fmt.Errorf("failed to send Signal message: %w", err)
 			}
 
+			target := recipient
+			if group != "" {
+				target = "group:" + group
+			}
 			ulog.Success("Signal message sent").
-				Field("recipient", recipient).
-				Pretty(fmt.Sprintf("Signal message sent to %s", recipient)).
+				Field("recipient", target).
+				Pretty(fmt.Sprintf("Signal message sent to %s", target)).
 				Emit()
 			return nil
 		},
 	}
 
 	cmd.Flags().StringVar(&to, "to", "", "Recipient phone number (omit to broadcast to allowlist)")
+	cmd.Flags().StringVar(&group, "group", "", "Signal group ID (base64) to send to")
 	cmd.Flags().BoolVar(&direct, "direct", false, "Force direct signal-cli send, bypassing daemon")
 
 	return cmd
@@ -97,7 +113,7 @@ Usage:
 // sendViaDaemon sends a message through the grove daemon's channel API.
 // Uses daemon.NewWithAutoStart so GROVE_SCOPE routes to the correct scoped
 // daemon (or auto-starts one) instead of hitting the legacy unscoped socket.
-func sendViaDaemon(jobID, recipient, message string) error {
+func sendViaDaemon(jobID, recipient, groupID, message string) error {
 	client := daemon.NewWithAutoStart()
 	defer client.Close()
 
@@ -105,6 +121,7 @@ func sendViaDaemon(jobID, recipient, message string) error {
 		JobID:     jobID,
 		JobTitle:  os.Getenv("GROVE_FLOW_JOB_TITLE"),
 		Recipient: recipient,
+		GroupID:   groupID,
 		Message:   message,
 	})
 	return err

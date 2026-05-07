@@ -28,6 +28,7 @@ type SignalConfig struct {
 	CLIPath            string   `yaml:"cli_path" jsonschema:"description=Path to signal-cli binary,default=/usr/local/bin/signal-cli" jsonschema_extras:"x-layer=global,x-priority=73"`
 	Account            string   `yaml:"account" jsonschema:"description=Signal account phone number" jsonschema_extras:"x-layer=global,x-priority=74,x-important=true"`
 	Allowlist          []string `yaml:"allowlist" jsonschema:"description=Authorized sender phone numbers" jsonschema_extras:"x-layer=global,x-priority=75"`
+	Groups             []string `yaml:"groups" jsonschema:"description=Authorized Signal group IDs (base64)" jsonschema_extras:"x-layer=global,x-priority=75"`
 	AgentInstructions  string   `yaml:"agent_instructions" jsonschema:"description=Custom agent instructions for Signal (replaces default if set)" jsonschema_extras:"x-layer=global,x-priority=76"`
 	AppendInstructions string   `yaml:"append_instructions" jsonschema:"description=Additional instructions appended to the default Signal agent instructions" jsonschema_extras:"x-layer=global,x-priority=77"`
 }
@@ -93,6 +94,9 @@ func Load() *NotificationsConfig {
 	}
 	if len(userCfg.Signal.Allowlist) > 0 {
 		cfg.Signal.Allowlist = userCfg.Signal.Allowlist
+	}
+	if len(userCfg.Signal.Groups) > 0 {
+		cfg.Signal.Groups = userCfg.Signal.Groups
 	}
 
 	return cfg

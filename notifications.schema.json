@@ -68,6 +68,15 @@
           "x-layer": "global",
           "x-priority": "75"
         },
+        "groups": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Authorized Signal group IDs (base64)",
+          "x-layer": "global",
+          "x-priority": "75"
+        },
         "agent_instructions": {
           "type": "string",
           "description": "Custom agent instructions for Signal (replaces default if set)",
@@ -87,6 +96,7 @@
         "cli_path",
         "account",
         "allowlist",
+        "groups",
         "agent_instructions",
         "append_instructions"
       ]

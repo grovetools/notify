@@ -23,6 +23,7 @@ type Config struct {
 	CLIPath   string   // Path to signal-cli binary
 	Account   string   // Signal account phone number
 	Allowlist []string // Authorized sender phone numbers
+	Groups    []string // Authorized Signal group IDs (base64)
 }
 
 // Channel implements channels.Channel for Signal messaging via signal-cli.
@@ -32,6 +33,7 @@ type Channel struct {
 	mu        sync.RWMutex
 	cancel    context.CancelFunc
 	allowlist map[string]bool
+	groupMap  map[string]bool
 	daemonCmd *exec.Cmd
 
 	restartCount  int
@@ -45,9 +47,14 @@ func NewChannel(cfg Config) *Channel {
 	for _, num := range cfg.Allowlist {
 		allowmap[num] = true
 	}
+	groupmap := make(map[string]bool, len(cfg.Groups))
+	for _, g := range cfg.Groups {
+		groupmap[g] = true
+	}
 	return &Channel{
 		config:    cfg,
 		allowlist: allowmap,
+		groupMap:  groupmap,
 	}
 }
 
@@ -215,14 +222,28 @@ func (c *Channel) runDaemon(ctx context.Context, onMessage func(channels.Inbound
 			continue
 		}
 
+		var groupID string
+		if msg.Envelope.DataMessage.GroupInfo != nil {
+			groupID = msg.Envelope.DataMessage.GroupInfo.GroupID
+		}
+		if groupID != "" && !c.groupMap[groupID] {
+			ulog.Warn("dropped message from unlisted group").
+				Field("sender", sender).
+				Field("group_id", groupID).
+				StructuredOnly().Log(ctx)
+			continue
+		}
+
 		ulog.Info("inbound message received").
 			Field("sender", sender).
+			Field("group_id", groupID).
 			Field("len", len(msg.Envelope.DataMessage.Message)).
 			StructuredOnly().Log(ctx)
 
 		inbound := channels.InboundMessage{
 			Channel: c.Name(),
 			Source:  sender,
+			GroupID: groupID,
 			Message: msg.Envelope.DataMessage.Message,
 		}
 
@@ -250,12 +271,13 @@ func (c *Channel) Send(ctx context.Context, req channels.OutboundMessage) (*chan
 	socketPath := c.signalSocketPath()
 	ulog.Info("Send called").
 		Field("recipient", req.Recipient).
+		Field("group_id", req.GroupID).
 		Field("msg_len", len(req.Message)).
 		Field("socket", socketPath).
 		StructuredOnly().Log(ctx)
 
 	if socketPath != "" {
-		result, err := c.sendViaSocket(socketPath, req.Recipient, req.Message)
+		result, err := c.sendViaSocket(socketPath, req.Recipient, req.GroupID, req.Message)
 		if err != nil {
 			ulog.Error("sendViaSocket failed").Err(err).StructuredOnly().Log(ctx)
 		} else {
@@ -265,7 +287,7 @@ func (c *Channel) Send(ctx context.Context, req channels.OutboundMessage) (*chan
 	}
 
 	ulog.Info("falling back to sendViaCommand").StructuredOnly().Log(ctx)
-	return c.sendViaCommand(req.Recipient, req.Message)
+	return c.sendViaCommand(req.Recipient, req.GroupID, req.Message)
 }
 
 // Stop gracefully shuts down the Signal channel.
@@ -293,10 +315,13 @@ type signalMessage struct {
 		DataMessage *struct {
 			Timestamp int64  `json:"timestamp"`
 			Message   string `json:"message"`
-			Quote     *struct {
-				ID     int64  `json:"id"`     // Timestamp of the message being replied to
-				Author string `json:"author"` // Who sent the original message
-				Text   string `json:"text"`   // Quoted text (may be truncated)
+			GroupInfo *struct {
+				GroupID string `json:"groupId"`
+			} `json:"groupInfo"`
+			Quote *struct {
+				ID     int64  `json:"id"`
+				Author string `json:"author"`
+				Text   string `json:"text"`
 			} `json:"quote"`
 		} `json:"dataMessage"`
 	} `json:"envelope"`
@@ -321,7 +346,7 @@ func (c *Channel) signalSocketPath() string {
 }
 
 // sendViaSocket sends a message through signal-cli's JSON-RPC unix socket.
-func (c *Channel) sendViaSocket(socketPath, recipient, content string) (*channels.SendResult, error) {
+func (c *Channel) sendViaSocket(socketPath, recipient, groupID, content string) (*channels.SendResult, error) {
 	conn, err := net.Dial("unix", socketPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to signal-cli socket: %w", err)
@@ -329,14 +354,18 @@ func (c *Channel) sendViaSocket(socketPath, recipient, content string) (*channel
 	defer conn.Close()
 	_ = conn.SetDeadline(time.Now().Add(30 * time.Second))
 
+	params := map[string]any{"message": content}
+	if groupID != "" {
+		params["groupId"] = groupID
+	} else {
+		params["recipient"] = []string{recipient}
+	}
+
 	request := map[string]any{
 		"jsonrpc": "2.0",
 		"method":  "send",
 		"id":      "1",
-		"params": map[string]any{
-			"recipient": []string{recipient},
-			"message":   content,
-		},
+		"params":  params,
 	}
 
 	data, err := json.Marshal(request)
@@ -379,8 +408,14 @@ func (c *Channel) sendViaSocket(socketPath, recipient, content string) (*channel
 }
 
 // sendViaCommand sends a message by spawning signal-cli send (fallback).
-func (c *Channel) sendViaCommand(recipient, content string) (*channels.SendResult, error) {
-	cmd := exec.Command(c.config.CLIPath, "-a", c.config.Account, "send", "-m", content, recipient) //nolint:gosec // CLIPath is from trusted config
+func (c *Channel) sendViaCommand(recipient, groupID, content string) (*channels.SendResult, error) {
+	args := []string{"-a", c.config.Account, "send", "-m", content}
+	if groupID != "" {
+		args = append(args, "-g", groupID)
+	} else {
+		args = append(args, recipient)
+	}
+	cmd := exec.Command(c.config.CLIPath, args...) //nolint:gosec // CLIPath is from trusted config
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("signal-cli send failed: %w (output: %s)", err, string(output))
@@ -390,8 +425,14 @@ func (c *Channel) sendViaCommand(recipient, content string) (*channels.SendResul
 
 // SendDirect sends a message directly via signal-cli without requiring the daemon to be running.
 // This is used by the notify CLI as a standalone fallback.
-func SendDirect(cliPath, account, recipient, message string) error {
-	cmd := exec.Command(cliPath, "-a", account, "send", "-m", message, recipient)
+func SendDirect(cliPath, account, recipient, groupID, message string) error {
+	args := []string{"-a", account, "send", "-m", message}
+	if groupID != "" {
+		args = append(args, "-g", groupID)
+	} else {
+		args = append(args, recipient)
+	}
+	cmd := exec.Command(cliPath, args...) //nolint:gosec // CLIPath is from trusted config
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("signal-cli send failed: %w (output: %s)", err, string(output))
