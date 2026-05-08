@@ -77,6 +77,15 @@
           "x-layer": "global",
           "x-priority": "75"
         },
+        "contacts": {
+          "additionalProperties": {
+            "$ref": "#/$defs/SignalContact"
+          },
+          "type": "object",
+          "description": "Named contacts mapping name to phone number",
+          "x-layer": "global",
+          "x-priority": "75"
+        },
         "agent_instructions": {
           "type": "string",
           "description": "Custom agent instructions for Signal (replaces default if set)",
@@ -97,8 +106,26 @@
         "account",
         "allowlist",
         "groups",
+        "contacts",
         "agent_instructions",
         "append_instructions"
+      ]
+    },
+    "SignalContact": {
+      "properties": {
+        "phone": {
+          "type": "string",
+          "description": "Phone number for this contact"
+        },
+        "instructions": {
+          "type": "string",
+          "description": "Custom agent instructions when targeting this contact"
+        }
+      },
+      "type": "object",
+      "required": [
+        "phone",
+        "instructions"
       ]
     },
     "SystemConfig": {

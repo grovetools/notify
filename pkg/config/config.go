@@ -22,15 +22,58 @@ type NtfyConfig struct {
 	URL     string `yaml:"url" jsonschema:"description=ntfy.sh server URL,default=https://ntfy.sh" jsonschema_extras:"x-layer=global,x-priority=72,x-important=true"`
 }
 
+// SignalContact represents a named Signal contact.
+type SignalContact struct {
+	Phone        string `yaml:"phone" jsonschema:"description=Phone number for this contact"`
+	Instructions string `yaml:"instructions" jsonschema:"description=Custom agent instructions when targeting this contact"`
+}
+
+// SignalGroup represents a named Signal group.
+type SignalGroup struct {
+	ID           string `yaml:"id" jsonschema:"description=Base64 group ID"`
+	Instructions string `yaml:"instructions" jsonschema:"description=Custom agent instructions when targeting this group"`
+}
+
 // SignalConfig holds settings for Signal messaging channel.
 type SignalConfig struct {
-	Enabled            bool     `yaml:"enabled" jsonschema:"description=Enable Signal messaging channel,default=false" jsonschema_extras:"x-layer=global,x-priority=72,x-important=true"`
-	CLIPath            string   `yaml:"cli_path" jsonschema:"description=Path to signal-cli binary,default=/usr/local/bin/signal-cli" jsonschema_extras:"x-layer=global,x-priority=73"`
-	Account            string   `yaml:"account" jsonschema:"description=Signal account phone number" jsonschema_extras:"x-layer=global,x-priority=74,x-important=true"`
-	Allowlist          []string `yaml:"allowlist" jsonschema:"description=Authorized sender phone numbers" jsonschema_extras:"x-layer=global,x-priority=75"`
-	Groups             []string `yaml:"groups" jsonschema:"description=Authorized Signal group IDs (base64)" jsonschema_extras:"x-layer=global,x-priority=75"`
-	AgentInstructions  string   `yaml:"agent_instructions" jsonschema:"description=Custom agent instructions for Signal (replaces default if set)" jsonschema_extras:"x-layer=global,x-priority=76"`
-	AppendInstructions string   `yaml:"append_instructions" jsonschema:"description=Additional instructions appended to the default Signal agent instructions" jsonschema_extras:"x-layer=global,x-priority=77"`
+	Enabled            bool                      `yaml:"enabled" jsonschema:"description=Enable Signal messaging channel,default=false" jsonschema_extras:"x-layer=global,x-priority=72,x-important=true"`
+	CLIPath            string                    `yaml:"cli_path" jsonschema:"description=Path to signal-cli binary,default=/usr/local/bin/signal-cli" jsonschema_extras:"x-layer=global,x-priority=73"`
+	Account            string                    `yaml:"account" jsonschema:"description=Signal account phone number" jsonschema_extras:"x-layer=global,x-priority=74,x-important=true"`
+	Allowlist          []string                  `yaml:"allowlist" jsonschema:"description=Authorized sender phone numbers" jsonschema_extras:"x-layer=global,x-priority=75"`
+	Groups             []string                  `yaml:"groups" jsonschema:"description=Authorized Signal group IDs (base64)" jsonschema_extras:"x-layer=global,x-priority=75"`
+	Contacts           map[string]SignalContact  `yaml:"contacts" jsonschema:"description=Named contacts mapping name to phone number" jsonschema_extras:"x-layer=global,x-priority=75"`
+	NamedGroups        map[string]SignalGroup    `yaml:"named_groups,omitempty" json:"named_groups,omitempty" jsonschema:"-"`
+	AgentInstructions  string                    `yaml:"agent_instructions" jsonschema:"description=Custom agent instructions for Signal (replaces default if set)" jsonschema_extras:"x-layer=global,x-priority=76"`
+	AppendInstructions string                    `yaml:"append_instructions" jsonschema:"description=Additional instructions appended to the default Signal agent instructions" jsonschema_extras:"x-layer=global,x-priority=77"`
+}
+
+// ContactsFlat returns a flat name→phone map for use by the channel manager.
+func (c *SignalConfig) ContactsFlat() map[string]string {
+	m := make(map[string]string, len(c.Contacts))
+	for name, contact := range c.Contacts {
+		m[name] = contact.Phone
+	}
+	return m
+}
+
+// TargetInstructions returns custom instructions for a named target, or empty string.
+func (c *SignalConfig) TargetInstructions(name string) string {
+	if g, ok := c.NamedGroups[name]; ok && g.Instructions != "" {
+		return g.Instructions
+	}
+	if ct, ok := c.Contacts[name]; ok && ct.Instructions != "" {
+		return ct.Instructions
+	}
+	return ""
+}
+
+// NamedGroupsFlat returns a flat name→groupID map for use by the channel manager.
+func (c *SignalConfig) NamedGroupsFlat() map[string]string {
+	m := make(map[string]string, len(c.NamedGroups))
+	for name, group := range c.NamedGroups {
+		m[name] = group.ID
+	}
+	return m
 }
 
 // AutonomousDefaults holds default settings for autonomous idle pinging.
@@ -97,6 +140,34 @@ func Load() *NotificationsConfig {
 	}
 	if len(userCfg.Signal.Groups) > 0 {
 		cfg.Signal.Groups = userCfg.Signal.Groups
+	}
+	if len(userCfg.Signal.Contacts) > 0 {
+		cfg.Signal.Contacts = userCfg.Signal.Contacts
+	}
+	if len(userCfg.Signal.NamedGroups) > 0 {
+		cfg.Signal.NamedGroups = userCfg.Signal.NamedGroups
+	}
+
+	// Auto-populate allowlist/groups from named entries (dedup-safe)
+	existing := make(map[string]bool)
+	for _, v := range cfg.Signal.Allowlist {
+		existing[v] = true
+	}
+	for _, contact := range cfg.Signal.Contacts {
+		if contact.Phone != "" && !existing[contact.Phone] {
+			cfg.Signal.Allowlist = append(cfg.Signal.Allowlist, contact.Phone)
+			existing[contact.Phone] = true
+		}
+	}
+	existingGroups := make(map[string]bool)
+	for _, v := range cfg.Signal.Groups {
+		existingGroups[v] = true
+	}
+	for _, group := range cfg.Signal.NamedGroups {
+		if group.ID != "" && !existingGroups[group.ID] {
+			cfg.Signal.Groups = append(cfg.Signal.Groups, group.ID)
+			existingGroups[group.ID] = true
+		}
 	}
 
 	return cfg
