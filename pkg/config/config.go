@@ -2,6 +2,8 @@ package config
 
 import (
 	"log"
+	"os/exec"
+	"strings"
 
 	"github.com/grovetools/core/config"
 )
@@ -10,9 +12,10 @@ import (
 
 // NotificationsConfig represents the structure of the 'notifications' section in grove.yml
 type NotificationsConfig struct {
-	Ntfy   NtfyConfig   `yaml:"ntfy" jsonschema:"description=ntfy.sh push notification settings" jsonschema_extras:"x-layer=global,x-priority=70"`
-	System SystemConfig `yaml:"system" jsonschema:"description=Native system notification settings" jsonschema_extras:"x-layer=global,x-priority=71"`
-	Signal SignalConfig `yaml:"signal" jsonschema:"description=Signal messaging channel settings" jsonschema_extras:"x-layer=global,x-priority=72"`
+	Ntfy          NtfyConfig          `yaml:"ntfy" jsonschema:"description=ntfy.sh push notification settings" jsonschema_extras:"x-layer=global,x-priority=70"`
+	System        SystemConfig        `yaml:"system" jsonschema:"description=Native system notification settings" jsonschema_extras:"x-layer=global,x-priority=71"`
+	Signal        SignalConfig        `yaml:"signal" jsonschema:"description=Signal messaging channel settings" jsonschema_extras:"x-layer=global,x-priority=72"`
+	HomeAssistant HomeAssistantConfig `yaml:"home_assistant" jsonschema:"description=Home Assistant Voice channel settings" jsonschema_extras:"x-layer=global,x-priority=73"`
 }
 
 // NtfyConfig holds settings for ntfy.sh notifications.
@@ -74,6 +77,52 @@ func (c *SignalConfig) NamedGroupsFlat() map[string]string {
 		m[name] = group.ID
 	}
 	return m
+}
+
+// HomeAssistantConfig holds settings for the Home Assistant Voice channel.
+type HomeAssistantConfig struct {
+	Enabled          bool   `yaml:"enabled" jsonschema:"description=Enable Home Assistant Voice channel,default=false" jsonschema_extras:"x-layer=global,x-priority=73,x-important=true"`
+	WebhookPort      int    `yaml:"webhook_port" jsonschema:"description=Port for inbound webhook server,default=8085" jsonschema_extras:"x-layer=global,x-priority=74"`
+	URL              string `yaml:"url" jsonschema:"description=Home Assistant base URL (e.g. http://homeassistant.local:8123)" jsonschema_extras:"x-layer=global,x-priority=75,x-important=true"`
+	Token            string `yaml:"token" jsonschema:"description=Home Assistant long-lived access token" jsonschema_extras:"x-layer=global,x-priority=76,x-important=true,x-sensitive=true,x-hint=Consider using token_command to fetch from a secrets manager"`
+	TokenCommand     string `yaml:"token_command" jsonschema:"description=Shell command to retrieve HA token (e.g. gcloud secrets or 1password)" jsonschema_extras:"x-layer=global,x-priority=76,x-important=true"`
+	WebhookSecret        string `yaml:"webhook_secret" jsonschema:"description=Shared secret for inbound webhook auth (HA must send Authorization: Bearer <secret>)" jsonschema_extras:"x-layer=global,x-priority=75,x-important=true,x-sensitive=true,x-hint=Consider using webhook_secret_command to fetch from a secrets manager"`
+	WebhookSecretCommand string `yaml:"webhook_secret_command" jsonschema:"description=Shell command to retrieve webhook secret" jsonschema_extras:"x-layer=global,x-priority=75,x-important=true"`
+	DefaultSatellite string `yaml:"default_satellite" jsonschema:"description=Default assist_satellite entity ID to target" jsonschema_extras:"x-layer=global,x-priority=77,x-important=true"`
+}
+
+// resolveCommand runs a shell command and returns its trimmed output.
+func resolveCommand(command string) (string, error) {
+	cmd := exec.Command("sh", "-c", command) //nolint:gosec // command comes from trusted grove config
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
+// ResolveToken returns the HA token, preferring token_command over the static token field.
+func (c *HomeAssistantConfig) ResolveToken() (string, error) {
+	if c.TokenCommand != "" {
+		if v, err := resolveCommand(c.TokenCommand); err != nil {
+			return "", err
+		} else if v != "" {
+			return v, nil
+		}
+	}
+	return c.Token, nil
+}
+
+// ResolveWebhookSecret returns the webhook secret, preferring the command form.
+func (c *HomeAssistantConfig) ResolveWebhookSecret() (string, error) {
+	if c.WebhookSecretCommand != "" {
+		if v, err := resolveCommand(c.WebhookSecretCommand); err != nil {
+			return "", err
+		} else if v != "" {
+			return v, nil
+		}
+	}
+	return c.WebhookSecret, nil
 }
 
 // AutonomousDefaults holds default settings for autonomous idle pinging.
@@ -148,6 +197,50 @@ func Load() *NotificationsConfig {
 		cfg.Signal.NamedGroups = userCfg.Signal.NamedGroups
 	}
 
+	// Home Assistant config
+	if userCfg.HomeAssistant.URL != "" || userCfg.HomeAssistant.Token != "" || userCfg.HomeAssistant.TokenCommand != "" {
+		cfg.HomeAssistant.Enabled = userCfg.HomeAssistant.Enabled
+	}
+	if userCfg.HomeAssistant.URL != "" {
+		cfg.HomeAssistant.URL = userCfg.HomeAssistant.URL
+	}
+	if userCfg.HomeAssistant.Token != "" {
+		cfg.HomeAssistant.Token = userCfg.HomeAssistant.Token
+	}
+	if userCfg.HomeAssistant.TokenCommand != "" {
+		cfg.HomeAssistant.TokenCommand = userCfg.HomeAssistant.TokenCommand
+	}
+	if userCfg.HomeAssistant.WebhookSecret != "" {
+		cfg.HomeAssistant.WebhookSecret = userCfg.HomeAssistant.WebhookSecret
+	}
+	if userCfg.HomeAssistant.WebhookSecretCommand != "" {
+		cfg.HomeAssistant.WebhookSecretCommand = userCfg.HomeAssistant.WebhookSecretCommand
+	}
+	if userCfg.HomeAssistant.WebhookPort > 0 {
+		cfg.HomeAssistant.WebhookPort = userCfg.HomeAssistant.WebhookPort
+	}
+	if userCfg.HomeAssistant.DefaultSatellite != "" {
+		cfg.HomeAssistant.DefaultSatellite = userCfg.HomeAssistant.DefaultSatellite
+	}
+
+	// Resolve HA secrets from commands if needed
+	if cfg.HomeAssistant.Enabled {
+		if cfg.HomeAssistant.Token == "" && cfg.HomeAssistant.TokenCommand != "" {
+			if v, err := cfg.HomeAssistant.ResolveToken(); err != nil {
+				log.Printf("Warning: HA token_command failed: %v", err)
+			} else {
+				cfg.HomeAssistant.Token = v
+			}
+		}
+		if cfg.HomeAssistant.WebhookSecret == "" && cfg.HomeAssistant.WebhookSecretCommand != "" {
+			if v, err := cfg.HomeAssistant.ResolveWebhookSecret(); err != nil {
+				log.Printf("Warning: HA webhook_secret_command failed: %v", err)
+			} else {
+				cfg.HomeAssistant.WebhookSecret = v
+			}
+		}
+	}
+
 	// Auto-populate allowlist/groups from named entries (dedup-safe)
 	existing := make(map[string]bool)
 	for _, v := range cfg.Signal.Allowlist {
@@ -186,6 +279,10 @@ func defaultConfig() *NotificationsConfig {
 		Signal: SignalConfig{
 			Enabled: false,
 			CLIPath: "/usr/local/bin/signal-cli",
+		},
+		HomeAssistant: HomeAssistantConfig{
+			Enabled:     false,
+			WebhookPort: 8085,
 		},
 	}
 }

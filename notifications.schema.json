@@ -2,6 +2,75 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/grovetools/notify/pkg/config/notifications-config",
   "$defs": {
+    "HomeAssistantConfig": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable Home Assistant Voice channel",
+          "default": false,
+          "x-important": true,
+          "x-layer": "global",
+          "x-priority": "73"
+        },
+        "webhook_port": {
+          "type": "integer",
+          "description": "Port for inbound webhook server",
+          "default": 8085,
+          "x-layer": "global",
+          "x-priority": "74"
+        },
+        "url": {
+          "type": "string",
+          "description": "Home Assistant base URL (e.g. http://homeassistant.local:8123)",
+          "x-important": true,
+          "x-layer": "global",
+          "x-priority": "75"
+        },
+        "token": {
+          "type": "string",
+          "description": "Home Assistant long-lived access token",
+          "x-hint": "Consider using token_command to fetch from a secrets manager",
+          "x-important": true,
+          "x-layer": "global",
+          "x-priority": "76",
+          "x-sensitive": true
+        },
+        "token_command": {
+          "type": "string",
+          "description": "Shell command to retrieve HA token (e.g. gcloud secrets or 1password)",
+          "x-important": true,
+          "x-layer": "global",
+          "x-priority": "76"
+        },
+        "webhook_secret": {
+          "type": "string",
+          "description": "Shared secret for inbound webhook auth (HA must send Authorization: Bearer \u003csecret\u003e)",
+          "x-hint": "Consider using webhook_secret_command to fetch from a secrets manager",
+          "x-important": true,
+          "x-layer": "global",
+          "x-priority": "75",
+          "x-sensitive": true
+        },
+        "webhook_secret_command": {
+          "type": "string",
+          "description": "Shell command to retrieve webhook secret",
+          "x-important": true,
+          "x-layer": "global",
+          "x-priority": "75"
+        },
+        "default_satellite": {
+          "type": "string",
+          "description": "Default assist_satellite entity ID to target",
+          "x-important": true,
+          "x-layer": "global",
+          "x-priority": "77"
+        }
+      },
+      "type": "object",
+      "required": [
+        "enabled"
+      ]
+    },
     "NtfyConfig": {
       "properties": {
         "enabled": {
@@ -164,6 +233,12 @@
       "description": "Signal messaging channel settings",
       "x-layer": "global",
       "x-priority": "72"
+    },
+    "home_assistant": {
+      "$ref": "#/$defs/HomeAssistantConfig",
+      "description": "Home Assistant Voice channel settings",
+      "x-layer": "global",
+      "x-priority": "73"
     }
   },
   "type": "object",

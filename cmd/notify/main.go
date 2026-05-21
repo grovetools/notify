@@ -25,6 +25,7 @@ func main() {
 	rootCmd.AddCommand(newSystemCmd())
 	rootCmd.AddCommand(newNtfyCmd())
 	rootCmd.AddCommand(newSignalCmd())
+	rootCmd.AddCommand(newHACmd())
 	rootCmd.AddCommand(cmd.NewVersionCmd())
 
 	if err := cli.Execute(rootCmd); err != nil {

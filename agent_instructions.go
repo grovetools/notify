@@ -1,6 +1,7 @@
 package notifications
 
 import (
+	"github.com/grovetools/notify/pkg/channels/ha"
 	"github.com/grovetools/notify/pkg/channels/signal"
 	"github.com/grovetools/notify/pkg/config"
 )
@@ -15,6 +16,8 @@ func AgentInstructions(cfg *config.NotificationsConfig, enabledChannels []string
 		switch ch {
 		case "signal":
 			instructions += signalInstructions(cfg, signalTarget)
+		case "ha":
+			instructions += ha.DefaultAgentInstructions()
 		}
 	}
 
