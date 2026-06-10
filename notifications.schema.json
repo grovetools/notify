@@ -68,7 +68,14 @@
       },
       "type": "object",
       "required": [
-        "enabled"
+        "enabled",
+        "webhook_port",
+        "url",
+        "token",
+        "token_command",
+        "webhook_secret",
+        "webhook_secret_command",
+        "default_satellite"
       ]
     },
     "NtfyConfig": {
