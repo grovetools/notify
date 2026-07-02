@@ -9,6 +9,8 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -17,6 +19,16 @@ import (
 )
 
 var ulog = grovelogging.NewUnifiedLogger("groved.signal")
+
+const (
+	// stderrTailBytes bounds the retained signal-cli stderr (last N bytes).
+	stderrTailBytes = 4096
+	// fastExitThreshold: a daemon exit with less uptime than this counts as
+	// a fast failure for the circuit breaker.
+	fastExitThreshold = 10 * time.Second
+	// maxFastExits: consecutive fast failures before supervision stops.
+	maxFastExits = 5
+)
 
 // Config holds Signal channel configuration.
 type Config struct {
@@ -39,6 +51,34 @@ type Channel struct {
 	restartCount  int
 	lastRestartAt time.Time
 	alive         bool
+
+	// Supervisor backoff bounds; overridable in tests.
+	initialBackoff time.Duration
+	maxBackoff     time.Duration
+}
+
+// tailBuffer is an io.Writer that keeps only the last max bytes written.
+// Used to capture the tail of signal-cli's stderr for failure logs.
+type tailBuffer struct {
+	mu  sync.Mutex
+	buf []byte
+	max int
+}
+
+func (t *tailBuffer) Write(p []byte) (int, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.buf = append(t.buf, p...)
+	if len(t.buf) > t.max {
+		t.buf = t.buf[len(t.buf)-t.max:]
+	}
+	return len(p), nil
+}
+
+func (t *tailBuffer) String() string {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return strings.TrimSpace(string(t.buf))
 }
 
 // NewChannel creates a new Signal channel with the given configuration.
@@ -52,9 +92,11 @@ func NewChannel(cfg Config) *Channel {
 		groupmap[g] = true
 	}
 	return &Channel{
-		config:    cfg,
-		allowlist: allowmap,
-		groupMap:  groupmap,
+		config:         cfg,
+		allowlist:      allowmap,
+		groupMap:       groupmap,
+		initialBackoff: time.Second,
+		maxBackoff:     30 * time.Second,
 	}
 }
 
@@ -109,8 +151,91 @@ func (c *Channel) Status() channels.ChannelStatus {
 	}
 }
 
+// preflight validates the channel configuration before any supervision
+// starts: the signal-cli binary must exist and be executable, an account
+// must be configured, and (when determinable) the account must be
+// registered with signal-cli. A descriptive error here prevents the
+// supervisor loop from churning forever on a setup that can never work.
+func (c *Channel) preflight() error {
+	if c.config.Account == "" {
+		return fmt.Errorf("no signal account configured")
+	}
+	info, err := os.Stat(c.config.CLIPath)
+	if err != nil {
+		return fmt.Errorf("signal-cli binary not found at %q: %w", c.config.CLIPath, err)
+	}
+	if info.IsDir() || info.Mode().Perm()&0o111 == 0 {
+		return fmt.Errorf("signal-cli path %q is not an executable file", c.config.CLIPath)
+	}
+	return c.checkRegistration()
+}
+
+// accountsJSONPath returns the path of signal-cli's account registry
+// (<data-dir>/data/accounts.json for the default data dir), or "" if the
+// home directory cannot be resolved.
+func accountsJSONPath() string {
+	dataHome := os.Getenv("XDG_DATA_HOME")
+	if dataHome == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return ""
+		}
+		dataHome = filepath.Join(home, ".local", "share")
+	}
+	return filepath.Join(dataHome, "signal-cli", "data", "accounts.json")
+}
+
+// checkRegistration verifies that the configured account is registered
+// with signal-cli. Primary source: signal-cli's accounts.json (format
+// {"accounts":[{"number":"+1...","path":...},...],"version":2}, verified
+// against signal-cli 0.14.5). Fallback when the file is missing or
+// unparseable: a best-effort `signal-cli -o json listAccounts` probe
+// (subcommand verified via --help). If neither source is conclusive the
+// check passes — the supervisor circuit breaker bounds any resulting churn.
+func (c *Channel) checkRegistration() error {
+	if path := accountsJSONPath(); path != "" {
+		if data, err := os.ReadFile(path); err == nil { //nolint:gosec // fixed well-known path
+			var f struct {
+				Accounts []struct {
+					Number string `json:"number"`
+					Path   string `json:"path"`
+				} `json:"accounts"`
+			}
+			if jerr := json.Unmarshal(data, &f); jerr == nil {
+				for _, a := range f.Accounts {
+					if a.Number == c.config.Account || a.Path == c.config.Account {
+						return nil
+					}
+				}
+				return fmt.Errorf("account %s is not registered with signal-cli (%s lists %d account(s)); run `%s -a %s register` or link a device, then restart the daemon",
+					c.config.Account, path, len(f.Accounts), c.config.CLIPath, c.config.Account)
+			}
+			// Unparseable accounts.json: fall through to the CLI probe.
+		}
+	}
+
+	probeCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(probeCtx, c.config.CLIPath, "-o", "json", "listAccounts").Output() //nolint:gosec // CLIPath is from trusted config
+	if err != nil {
+		// Inconclusive (probe failed to run); do not block startup.
+		return nil
+	}
+	if !strings.Contains(string(out), c.config.Account) {
+		return fmt.Errorf("account %s is not registered according to `signal-cli listAccounts`; run `%s -a %s register` or link a device, then restart the daemon",
+			c.config.Account, c.config.CLIPath, c.config.Account)
+	}
+	return nil
+}
+
 // Start begins the signal-cli daemon and routes inbound messages via the callback.
+// It fails fast (without launching the supervisor loop) when preflight
+// validation shows signal-cli can never start successfully.
 func (c *Channel) Start(ctx context.Context, onMessage func(channels.InboundMessage)) error {
+	if err := c.preflight(); err != nil {
+		return fmt.Errorf("signal channel preflight failed: %w", err)
+	}
+
 	listenCtx, cancel := context.WithCancel(ctx)
 	c.cancel = cancel
 
@@ -129,11 +254,15 @@ func (c *Channel) Start(ctx context.Context, onMessage func(channels.InboundMess
 }
 
 func (c *Channel) supervisorLoop(ctx context.Context, onMessage func(channels.InboundMessage)) {
-	backoff := time.Second
-	const maxBackoff = 30 * time.Second
+	backoff := c.initialBackoff
+	firstRun := true
+	fastExits := 0 // consecutive exits with uptime < fastExitThreshold
 
 	for {
-		err := c.runDaemon(ctx, onMessage)
+		started := time.Now()
+		stderrTail, err := c.runDaemon(ctx, onMessage, firstRun)
+		uptime := time.Since(started)
+		firstRun = false
 
 		select {
 		case <-ctx.Done():
@@ -148,11 +277,34 @@ func (c *Channel) supervisorLoop(ctx context.Context, onMessage func(channels.In
 		c.alive = false
 		c.restartCount++
 		c.lastRestartAt = time.Now()
+		restarts := c.restartCount
 		c.mu.Unlock()
+
+		if uptime < fastExitThreshold {
+			fastExits++
+		} else {
+			fastExits = 0
+			backoff = c.initialBackoff
+		}
+
+		// Circuit breaker: signal-cli dying immediately means a config or
+		// environment problem restarting can never fix (unregistered
+		// account, bad binary...). Stop supervising after repeated fast
+		// failures; the breaker re-arms on daemon restart or config reload.
+		if fastExits >= maxFastExits {
+			ulog.Error("signal-cli failing repeatedly; supervision stopped").Err(err).
+				Field("event", "channel.down").
+				Field("consecutive_fast_exits", fastExits).
+				Field("restart_count", restarts).
+				Field("stderr_tail", stderrTail).
+				StructuredOnly().Log(ctx)
+			return
+		}
 
 		ulog.Warn("signal-cli exited unexpectedly").Err(err).
 			Field("backoff", backoff.String()).
-			Field("restart_count", c.restartCount).
+			Field("restart_count", restarts).
+			Field("stderr_tail", stderrTail).
 			StructuredOnly().Log(ctx)
 
 		select {
@@ -168,24 +320,32 @@ func (c *Channel) supervisorLoop(ctx context.Context, onMessage func(channels.In
 		}
 
 		backoff *= 2
-		if backoff > maxBackoff {
-			backoff = maxBackoff
+		if backoff > c.maxBackoff {
+			backoff = c.maxBackoff
 		}
 	}
 }
 
-func (c *Channel) runDaemon(ctx context.Context, onMessage func(channels.InboundMessage)) error {
+// runDaemon runs one signal-cli daemon process to completion, returning the
+// tail of its stderr (for failure logs) alongside the exit error.
+func (c *Channel) runDaemon(ctx context.Context, onMessage func(channels.InboundMessage), firstRun bool) (string, error) {
 	cmd := exec.CommandContext(ctx, c.config.CLIPath, "-a", c.config.Account, "-o", "json", "daemon", "--socket", "--receive-mode", "on-start") //nolint:gosec // CLIPath is from trusted config
+	stderr := &tailBuffer{max: stderrTailBytes}
+	cmd.Stderr = stderr
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return fmt.Errorf("stdout pipe: %w", err)
+		return stderr.String(), fmt.Errorf("stdout pipe: %w", err)
 	}
 
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("start: %w", err)
+		return stderr.String(), fmt.Errorf("start: %w", err)
 	}
 
-	ulog.Info("signal-cli started").Field("pid", cmd.Process.Pid).StructuredOnly().Log(ctx)
+	startedLog := ulog.Debug("signal-cli started")
+	if firstRun {
+		startedLog = ulog.Info("signal-cli started").Field("event", "channel.up")
+	}
+	startedLog.Field("pid", cmd.Process.Pid).StructuredOnly().Log(ctx)
 
 	c.mu.Lock()
 	c.daemonCmd = cmd
@@ -199,7 +359,7 @@ func (c *Channel) runDaemon(ctx context.Context, onMessage func(channels.Inbound
 	for scanner.Scan() {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return stderr.String(), ctx.Err()
 		default:
 		}
 
@@ -258,11 +418,12 @@ func (c *Channel) runDaemon(ctx context.Context, onMessage func(channels.Inbound
 		onMessage(inbound)
 	}
 
-	ulog.Warn("signal-cli stdout scanner exited").
+	ulog.Debug("signal-cli stdout scanner exited").
 		Field("scanner_err", scanner.Err()).
 		StructuredOnly().Log(ctx)
 
-	return cmd.Wait()
+	waitErr := cmd.Wait()
+	return stderr.String(), waitErr
 }
 
 // Send sends an outbound message via signal-cli's JSON-RPC socket.
