@@ -40,6 +40,12 @@ type ChannelStatus struct {
 	IsAlive       bool
 	RestartCount  int
 	LastRestartAt time.Time
+	// LastError is the most recent exit/failure cause (may include a short
+	// stderr tail). Empty when the channel has never failed.
+	LastError string
+	// Stopped is true when supervision has permanently stopped (e.g. the
+	// circuit breaker tripped after repeated fast failures).
+	Stopped bool
 }
 
 // Channel is a bidirectional communication channel with an external messaging service.

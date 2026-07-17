@@ -171,4 +171,10 @@ func TestCircuitBreakerStopsSupervision(t *testing.T) {
 	if st.RestartCount != maxFastExits {
 		t.Fatalf("restart count = %d, want %d", st.RestartCount, maxFastExits)
 	}
+	if !st.Stopped {
+		t.Fatal("channel should report Stopped after breaker tripped")
+	}
+	if st.LastError == "" {
+		t.Fatal("channel should report a LastError after repeated failures")
+	}
 }

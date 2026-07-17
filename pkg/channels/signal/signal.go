@@ -51,6 +51,8 @@ type Channel struct {
 	restartCount  int
 	lastRestartAt time.Time
 	alive         bool
+	lastError     string // most recent exit cause (with short stderr tail)
+	stopped       bool   // supervision permanently stopped (breaker tripped)
 
 	// Supervisor backoff bounds; overridable in tests.
 	initialBackoff time.Duration
@@ -79,6 +81,29 @@ func (t *tailBuffer) String() string {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	return strings.TrimSpace(string(t.buf))
+}
+
+// lastErrorTailBytes bounds the stderr tail included in the recorded
+// lastError so Status() reporting stays to roughly one line.
+const lastErrorTailBytes = 200
+
+// formatExitError combines a daemon exit error with a short tail of its
+// stderr into a single human-readable cause for Status() reporting.
+func formatExitError(err error, stderrTail string) string {
+	tail := strings.TrimSpace(stderrTail)
+	if len(tail) > lastErrorTailBytes {
+		tail = tail[len(tail)-lastErrorTailBytes:]
+	}
+	switch {
+	case err != nil && tail != "":
+		return fmt.Sprintf("%v: %s", err, tail)
+	case err != nil:
+		return err.Error()
+	case tail != "":
+		return tail
+	default:
+		return "signal-cli exited without error"
+	}
 }
 
 // NewChannel creates a new Signal channel with the given configuration.
@@ -148,6 +173,8 @@ func (c *Channel) Status() channels.ChannelStatus {
 		IsAlive:       c.alive,
 		RestartCount:  c.restartCount,
 		LastRestartAt: c.lastRestartAt,
+		LastError:     c.lastError,
+		Stopped:       c.stopped,
 	}
 }
 
@@ -277,6 +304,7 @@ func (c *Channel) supervisorLoop(ctx context.Context, onMessage func(channels.In
 		c.alive = false
 		c.restartCount++
 		c.lastRestartAt = time.Now()
+		c.lastError = formatExitError(err, stderrTail)
 		restarts := c.restartCount
 		c.mu.Unlock()
 
@@ -292,6 +320,9 @@ func (c *Channel) supervisorLoop(ctx context.Context, onMessage func(channels.In
 		// account, bad binary...). Stop supervising after repeated fast
 		// failures; the breaker re-arms on daemon restart or config reload.
 		if fastExits >= maxFastExits {
+			c.mu.Lock()
+			c.stopped = true
+			c.mu.Unlock()
 			ulog.Error("signal-cli failing repeatedly; supervision stopped").Err(err).
 				Field("event", "channel.down").
 				Field("consecutive_fast_exits", fastExits).
