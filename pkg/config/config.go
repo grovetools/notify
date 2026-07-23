@@ -39,15 +39,15 @@ type SignalGroup struct {
 
 // SignalConfig holds settings for Signal messaging channel.
 type SignalConfig struct {
-	Enabled            bool                      `yaml:"enabled" jsonschema:"description=Enable Signal messaging channel,default=false" jsonschema_extras:"x-layer=global,x-priority=72,x-important=true"`
-	CLIPath            string                    `yaml:"cli_path" jsonschema:"description=Path to signal-cli binary,default=/usr/local/bin/signal-cli" jsonschema_extras:"x-layer=global,x-priority=73"`
-	Account            string                    `yaml:"account" jsonschema:"description=Signal account phone number" jsonschema_extras:"x-layer=global,x-priority=74,x-important=true"`
-	Allowlist          []string                  `yaml:"allowlist" jsonschema:"description=Authorized sender phone numbers" jsonschema_extras:"x-layer=global,x-priority=75"`
-	Groups             []string                  `yaml:"groups" jsonschema:"description=Authorized Signal group IDs (base64)" jsonschema_extras:"x-layer=global,x-priority=75"`
-	Contacts           map[string]SignalContact  `yaml:"contacts" jsonschema:"description=Named contacts mapping name to phone number" jsonschema_extras:"x-layer=global,x-priority=75"`
-	NamedGroups        map[string]SignalGroup    `yaml:"named_groups,omitempty" json:"named_groups,omitempty" jsonschema:"-"`
-	AgentInstructions  string                    `yaml:"agent_instructions" jsonschema:"description=Custom agent instructions for Signal (replaces default if set)" jsonschema_extras:"x-layer=global,x-priority=76"`
-	AppendInstructions string                    `yaml:"append_instructions" jsonschema:"description=Additional instructions appended to the default Signal agent instructions" jsonschema_extras:"x-layer=global,x-priority=77"`
+	Enabled            bool                     `yaml:"enabled" jsonschema:"description=Enable Signal messaging channel,default=false" jsonschema_extras:"x-layer=global,x-priority=72,x-important=true"`
+	CLIPath            string                   `yaml:"cli_path" jsonschema:"description=Path to signal-cli binary,default=/usr/local/bin/signal-cli" jsonschema_extras:"x-layer=global,x-priority=73"`
+	Account            string                   `yaml:"account" jsonschema:"description=Signal account phone number" jsonschema_extras:"x-layer=global,x-priority=74,x-important=true"`
+	Allowlist          []string                 `yaml:"allowlist" jsonschema:"description=Authorized sender phone numbers" jsonschema_extras:"x-layer=global,x-priority=75"`
+	Groups             []string                 `yaml:"groups" jsonschema:"description=Authorized Signal group IDs (base64)" jsonschema_extras:"x-layer=global,x-priority=75"`
+	Contacts           map[string]SignalContact `yaml:"contacts" jsonschema:"description=Named contacts mapping name to phone number" jsonschema_extras:"x-layer=global,x-priority=75"`
+	NamedGroups        map[string]SignalGroup   `yaml:"named_groups,omitempty" json:"named_groups,omitempty" jsonschema:"-"`
+	AgentInstructions  string                   `yaml:"agent_instructions" jsonschema:"description=Custom agent instructions for Signal (replaces default if set)" jsonschema_extras:"x-layer=global,x-priority=76"`
+	AppendInstructions string                   `yaml:"append_instructions" jsonschema:"description=Additional instructions appended to the default Signal agent instructions" jsonschema_extras:"x-layer=global,x-priority=77"`
 }
 
 // ContactsFlat returns a flat name→phone map for use by the channel manager.
@@ -81,14 +81,14 @@ func (c *SignalConfig) NamedGroupsFlat() map[string]string {
 
 // HomeAssistantConfig holds settings for the Home Assistant Voice channel.
 type HomeAssistantConfig struct {
-	Enabled          bool   `yaml:"enabled" jsonschema:"description=Enable Home Assistant Voice channel,default=false" jsonschema_extras:"x-layer=global,x-priority=73,x-important=true"`
-	WebhookPort      int    `yaml:"webhook_port" jsonschema:"description=Port for inbound webhook server,default=8085" jsonschema_extras:"x-layer=global,x-priority=74"`
-	URL              string `yaml:"url" jsonschema:"description=Home Assistant base URL (e.g. http://homeassistant.local:8123)" jsonschema_extras:"x-layer=global,x-priority=75,x-important=true"`
-	Token            string `yaml:"token" jsonschema:"description=Home Assistant long-lived access token" jsonschema_extras:"x-layer=global,x-priority=76,x-important=true,x-sensitive=true,x-hint=Consider using token_command to fetch from a secrets manager"`
-	TokenCommand     string `yaml:"token_command" jsonschema:"description=Shell command to retrieve HA token (e.g. gcloud secrets or 1password)" jsonschema_extras:"x-layer=global,x-priority=76,x-important=true"`
+	Enabled              bool   `yaml:"enabled" jsonschema:"description=Enable Home Assistant Voice channel,default=false" jsonschema_extras:"x-layer=global,x-priority=73,x-important=true"`
+	WebhookPort          int    `yaml:"webhook_port" jsonschema:"description=Port for inbound webhook server,default=8085" jsonschema_extras:"x-layer=global,x-priority=74"`
+	URL                  string `yaml:"url" jsonschema:"description=Home Assistant base URL (e.g. http://homeassistant.local:8123)" jsonschema_extras:"x-layer=global,x-priority=75,x-important=true"`
+	Token                string `yaml:"token" jsonschema:"description=Home Assistant long-lived access token" jsonschema_extras:"x-layer=global,x-priority=76,x-important=true,x-sensitive=true,x-hint=Consider using token_command to fetch from a secrets manager"`
+	TokenCommand         string `yaml:"token_command" jsonschema:"description=Shell command to retrieve HA token (e.g. gcloud secrets or 1password)" jsonschema_extras:"x-layer=global,x-priority=76,x-important=true"`
 	WebhookSecret        string `yaml:"webhook_secret" jsonschema:"description=Shared secret for inbound webhook auth (HA must send Authorization: Bearer <secret>)" jsonschema_extras:"x-layer=global,x-priority=75,x-important=true,x-sensitive=true,x-hint=Consider using webhook_secret_command to fetch from a secrets manager"`
 	WebhookSecretCommand string `yaml:"webhook_secret_command" jsonschema:"description=Shell command to retrieve webhook secret" jsonschema_extras:"x-layer=global,x-priority=75,x-important=true"`
-	DefaultSatellite string `yaml:"default_satellite" jsonschema:"description=Default assist_satellite entity ID to target" jsonschema_extras:"x-layer=global,x-priority=77,x-important=true"`
+	DefaultSatellite     string `yaml:"default_satellite" jsonschema:"description=Default assist_satellite entity ID to target" jsonschema_extras:"x-layer=global,x-priority=77,x-important=true"`
 }
 
 // resolveCommand runs a shell command and returns its trimmed output.
