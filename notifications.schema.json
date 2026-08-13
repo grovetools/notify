@@ -19,6 +19,14 @@
           "x-layer": "global",
           "x-priority": "74"
         },
+        "webhook_bind": {
+          "type": "string",
+          "description": "Interface to bind the inbound webhook listener to",
+          "default": "127.0.0.1",
+          "x-hint": "Defaults to loopback; set to 0.0.0.0 only if Home Assistant runs on a different host and you understand the exposure",
+          "x-layer": "global",
+          "x-priority": "74"
+        },
         "url": {
           "type": "string",
           "description": "Home Assistant base URL (e.g. http://homeassistant.local:8123)",
@@ -70,6 +78,7 @@
       "required": [
         "enabled",
         "webhook_port",
+        "webhook_bind",
         "url",
         "token",
         "token_command",

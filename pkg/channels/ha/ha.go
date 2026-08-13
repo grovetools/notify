@@ -6,11 +6,13 @@ package ha
 import (
 	"bytes"
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -22,8 +24,14 @@ var ulog = grovelogging.NewUnifiedLogger("groved.ha")
 
 // Config holds Home Assistant channel configuration.
 type Config struct {
-	WebhookPort      int
-	WebhookSecret    string
+	WebhookPort   int
+	WebhookBind   string // interface to bind the inbound webhook listener to; defaults to 127.0.0.1
+	WebhookSecret string
+	// WebhookSecretErr is set when the webhook secret was configured via
+	// webhook_secret_command but resolution failed (or returned empty). A
+	// non-empty value forces the channel to refuse to serve rather than fall
+	// open with an unauthenticated endpoint.
+	WebhookSecretErr string
 	HAURL            string
 	HAToken          string
 	DefaultSatellite string
@@ -76,6 +84,17 @@ func (c *Channel) Start(ctx context.Context, onMessage func(channels.InboundMess
 		return fmt.Errorf("ha channel already running")
 	}
 
+	// Fail CLOSED. The webhook routes its request body straight into an agent
+	// as an inbound instruction, so an unauthenticated listener is a remote
+	// command-injection surface. Refuse to open the listener unless we hold a
+	// non-empty shared secret to authenticate callers against.
+	if c.config.WebhookSecretErr != "" {
+		return fmt.Errorf("ha channel refusing to start: webhook secret unavailable: %s", c.config.WebhookSecretErr)
+	}
+	if c.config.WebhookSecret == "" {
+		return fmt.Errorf("ha channel refusing to start: webhook_secret is empty; an unauthenticated webhook would accept agent commands from any host on the network. Set webhook_secret (or a working webhook_secret_command)")
+	}
+
 	ctx, c.cancel = context.WithCancel(ctx)
 
 	mux := http.NewServeMux()
@@ -85,12 +104,14 @@ func (c *Channel) Start(ctx context.Context, onMessage func(channels.InboundMess
 			return
 		}
 
-		if c.config.WebhookSecret != "" {
-			auth := r.Header.Get("Authorization")
-			if auth != "Bearer "+c.config.WebhookSecret {
-				http.Error(w, "unauthorized", http.StatusUnauthorized)
-				return
-			}
+		// Start guarantees a non-empty secret, so the endpoint is always
+		// authenticated. Compare in constant time to avoid leaking the secret
+		// through response-timing analysis.
+		auth := r.Header.Get("Authorization")
+		expected := "Bearer " + c.config.WebhookSecret
+		if subtle.ConstantTimeCompare([]byte(auth), []byte(expected)) != 1 {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
 		}
 
 		var payload webhookPayload
@@ -124,7 +145,14 @@ func (c *Channel) Start(ctx context.Context, onMessage func(channels.InboundMess
 		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	})
 
-	addr := fmt.Sprintf(":%d", c.config.WebhookPort)
+	// Bind loopback by default. HA often runs on a separate host, so a broader
+	// interface is allowed, but only when the operator sets webhook_bind
+	// explicitly — never silently on 0.0.0.0.
+	bindHost := c.config.WebhookBind
+	if bindHost == "" {
+		bindHost = "127.0.0.1"
+	}
+	addr := net.JoinHostPort(bindHost, strconv.Itoa(c.config.WebhookPort))
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		return fmt.Errorf("listen on %s: %w", addr, err)

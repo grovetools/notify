@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"log"
 	"os/exec"
 	"strings"
@@ -83,12 +84,19 @@ func (c *SignalConfig) NamedGroupsFlat() map[string]string {
 type HomeAssistantConfig struct {
 	Enabled              bool   `yaml:"enabled" jsonschema:"description=Enable Home Assistant Voice channel,default=false" jsonschema_extras:"x-layer=global,x-priority=73,x-important=true"`
 	WebhookPort          int    `yaml:"webhook_port" jsonschema:"description=Port for inbound webhook server,default=8085" jsonschema_extras:"x-layer=global,x-priority=74"`
+	WebhookBind          string `yaml:"webhook_bind" jsonschema:"description=Interface to bind the inbound webhook listener to,default=127.0.0.1" jsonschema_extras:"x-layer=global,x-priority=74,x-hint=Defaults to loopback; set to 0.0.0.0 only if Home Assistant runs on a different host and you understand the exposure"`
 	URL                  string `yaml:"url" jsonschema:"description=Home Assistant base URL (e.g. http://homeassistant.local:8123)" jsonschema_extras:"x-layer=global,x-priority=75,x-important=true"`
 	Token                string `yaml:"token" jsonschema:"description=Home Assistant long-lived access token" jsonschema_extras:"x-layer=global,x-priority=76,x-important=true,x-sensitive=true,x-hint=Consider using token_command to fetch from a secrets manager"`
 	TokenCommand         string `yaml:"token_command" jsonschema:"description=Shell command to retrieve HA token (e.g. gcloud secrets or 1password)" jsonschema_extras:"x-layer=global,x-priority=76,x-important=true"`
 	WebhookSecret        string `yaml:"webhook_secret" jsonschema:"description=Shared secret for inbound webhook auth (HA must send Authorization: Bearer <secret>)" jsonschema_extras:"x-layer=global,x-priority=75,x-important=true,x-sensitive=true,x-hint=Consider using webhook_secret_command to fetch from a secrets manager"`
 	WebhookSecretCommand string `yaml:"webhook_secret_command" jsonschema:"description=Shell command to retrieve webhook secret" jsonschema_extras:"x-layer=global,x-priority=75,x-important=true"`
 	DefaultSatellite     string `yaml:"default_satellite" jsonschema:"description=Default assist_satellite entity ID to target" jsonschema_extras:"x-layer=global,x-priority=77,x-important=true"`
+
+	// WebhookSecretErr is a runtime-only field (never parsed from config). It
+	// is set by Load when webhook_secret_command was configured but failed to
+	// resolve or returned empty, so the channel can refuse to serve rather than
+	// fall open with an unauthenticated endpoint.
+	WebhookSecretErr string `yaml:"-" json:"-" jsonschema:"-"`
 }
 
 // resolveCommand runs a shell command and returns its trimmed output.
@@ -219,6 +227,9 @@ func Load() *NotificationsConfig {
 	if userCfg.HomeAssistant.WebhookPort > 0 {
 		cfg.HomeAssistant.WebhookPort = userCfg.HomeAssistant.WebhookPort
 	}
+	if userCfg.HomeAssistant.WebhookBind != "" {
+		cfg.HomeAssistant.WebhookBind = userCfg.HomeAssistant.WebhookBind
+	}
 	if userCfg.HomeAssistant.DefaultSatellite != "" {
 		cfg.HomeAssistant.DefaultSatellite = userCfg.HomeAssistant.DefaultSatellite
 	}
@@ -233,9 +244,19 @@ func Load() *NotificationsConfig {
 			}
 		}
 		if cfg.HomeAssistant.WebhookSecret == "" && cfg.HomeAssistant.WebhookSecretCommand != "" {
-			if v, err := cfg.HomeAssistant.ResolveWebhookSecret(); err != nil {
-				log.Printf("Warning: HA webhook_secret_command failed: %v", err)
-			} else {
+			// A failing (or empty-returning) secret command must be FATAL to the
+			// webhook, not a warning. Falling back to an empty secret would open
+			// an unauthenticated agent-command endpoint. Record the failure so
+			// the channel refuses to serve.
+			v, err := cfg.HomeAssistant.ResolveWebhookSecret()
+			switch {
+			case err != nil:
+				cfg.HomeAssistant.WebhookSecretErr = fmt.Sprintf("webhook_secret_command failed: %v", err)
+				log.Printf("Error: HA webhook_secret_command failed; webhook will refuse to serve: %v", err)
+			case v == "":
+				cfg.HomeAssistant.WebhookSecretErr = "webhook_secret_command returned an empty secret"
+				log.Printf("Error: HA webhook_secret_command returned an empty secret; webhook will refuse to serve")
+			default:
 				cfg.HomeAssistant.WebhookSecret = v
 			}
 		}
@@ -283,6 +304,7 @@ func defaultConfig() *NotificationsConfig {
 		HomeAssistant: HomeAssistantConfig{
 			Enabled:     false,
 			WebhookPort: 8085,
+			WebhookBind: "127.0.0.1",
 		},
 	}
 }
